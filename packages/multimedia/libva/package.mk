@@ -6,11 +6,14 @@ PKG_NAME="libva"
 PKG_VERSION="2.21.0"
 PKG_SHA256="f7c3fffef3f04eb146e036dad2587d852bfb70e4926d014bf437244915ef7425"
 PKG_ARCH="x86_64"
-[ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" i386" || true
 PKG_LICENSE="GPL"
 PKG_SITE="https://01.org/linuxmedia"
 PKG_URL="https://github.com/intel/libva/archive/${PKG_VERSION}.tar.gz"
 PKG_LONGDESC="Libva is an implementation for VA-API (VIdeo Acceleration API)."
+
+if [ "${DISTRO}" = "Lakka" ]; then
+  PKG_ARCH+=" i386"
+fi
 
 if [ "${DISPLAYSERVER}" = "x11" ]; then
   PKG_DEPENDS_TARGET="toolchain libX11 libXext libXfixes libdrm"

@@ -30,16 +30,21 @@ case "${LINUX}" in
     ;;
   L4T)
     if [ -z "${L4T_KERNEL_VERSION}" ]; then
-      echo "${PROJECT}: ${KERNEL} - you must set L4T_KERNEL_VERSION in projects/${PROJECT}/device/${DEVICE}/options"
+      echo -n "${DEVICE:-${PROJECT}}: ${KERNEL} - you must set L4T_KERNEL_VERSION in projects/${PROJECT}/"
+        if [ -z "${DEVICE}" ]; then
+          echo "options"
+        else
+          echo "device/${DEVICE}/options"
+        fi
       exit 1
     fi
-    PKG_VERSION=${DEVICE}-${L4T_KERNEL_VERSION}
+    PKG_VERSION=${DEVICE:-${PROJECT}}-${L4T_KERNEL_VERSION}
     PKG_URL="l4t-kernel-sources"
     GET_HANDLER_SUPPORT="l4t-kernel-sources"
     PKG_PATCH_DIRS="${PROJECT} ${PROJECT}/${DEVICE}"
     PKG_SOURCE_NAME="${PKG_NAME}-${PKG_VERSION}.tar.gz"
     #Need to find a better way to do this for l4t platforms!
-    PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
+    PKG_SHA256=${L4T_COMBINED_KERNEL_SHA256}
     ;;
   ayn-odin)
    PKG_SHA256="9aa25bf492928bc7a4542e87d28919c9ac36d27c"

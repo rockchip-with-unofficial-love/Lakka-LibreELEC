@@ -133,12 +133,12 @@ if [ "${PROJECT}" = "L4T" ]; then
   fi
 fi
 
-if [ "${LAKKA_NIGHTLY}" = yes ]; then
+if [ "${LAKKA_NIGHTLY}" = "yes" ]; then
   PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_NIGHTLY=1"
-fi
-
-if [ "${LAKKA_DEVBUILD}" = yes ]; then
+elif [ "${LAKKA_DEVBUILD}" = "yes" ]; then
   PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_DEVBUILD=1"
+elif [ -n "${LAKKA_CANARY_PATH}" ]; then
+  PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_CANARY=\"${LAKKA_CANARY_PATH}\""
 fi
 
 pre_configure_target() {
@@ -233,7 +233,8 @@ makeinstall_target() {
   echo 'audio_driver = "alsathread"' >> ${INSTALL}/etc/retroarch.cfg
   echo 'audio_filter_dir = "/usr/share/audio_filters"' >> ${INSTALL}/etc/retroarch.cfg
 
-  if [ "${DEVICE}" = "Exynos" ]; then # workaround the 55fps bug
+  if [ "${PROJECT}" = "Samsung" -a "${DEVICE}" = "Exynos" ]; then
+    # workaround the 55fps bug
     echo 'audio_out_rate = "44100"' >> ${INSTALL}/etc/retroarch.cfg
   fi
 
@@ -337,9 +338,6 @@ makeinstall_target() {
     sed -i -e 's|^menu_driver =.*|menu_driver = "ozone"|' ${INSTALL}/etc/retroarch.cfg
 
     if [ ! "${PROJECT}" = "Ayn" -a ! "${DEVICE}" = "Odin" ]; then
-      #Set Default Joycon index to Combined Joycons.
-      echo 'input_player1_joypad_index = "2"' >> ${INSTALL}/etc/retroarch.cfg
-
       #Set Joypad as joypad with analog
       echo 'input_libretro_device_p1 = "5"' >> ${INSTALL}/etc/retroarch.cfg
     else
