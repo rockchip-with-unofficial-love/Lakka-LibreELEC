@@ -49,7 +49,7 @@ pre_configure_target() {
 # bluez fails to build in subdirs
   cd ${PKG_BUILD}
     rm -rf .${TARGET_NAME}
-
+  sed -i -e "s|<policy user=\"%DISTRO%\">|<policy user=\"${DISTRO}\">|" src/bluetooth.conf
   export LIBS="-lncurses"
 }
 
@@ -71,7 +71,7 @@ post_makeinstall_target() {
     echo "[General]" > ${INSTALL}/etc/bluetooth/input.conf
     echo "ClassicBondedOnly=false" >> ${INSTALL}/etc/bluetooth/input.conf
 
-    if [ "${DISTRO}" = "Lakka" ]; then
+    if [ "${DISTRO}" = "Lakka" ] || [ "${PROJECT}" = "L4T" -a "${DEVICE}" = "Switch" ]; then
       sed -i $INSTALL/etc/bluetooth/main.conf \
           -e "s|^#FastConnectable.*|FastConnectable=true|g" \
           -e "s|^# Privacy =.*|Privacy = device|g"
