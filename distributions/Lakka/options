@@ -384,6 +384,7 @@
                                uae4arm \
                                vbam \
                                virtualjaguar \
+                               vitaquake2 \
                                yabause \
                               "
     elif [ "${DEVICE}" = "RPi2" ]; then
