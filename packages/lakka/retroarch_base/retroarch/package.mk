@@ -52,6 +52,7 @@ fi
 
 if [ "${VULKAN_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
+  PKG_MAKE_OPTS_TARGET+=" HAVE_VULKAN=1"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-vulkan"
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-vulkan"
@@ -78,6 +79,7 @@ fi
 
 if [ "${DISPLAYSERVER}" = "wl" ]; then
   PKG_DEPENDS_TARGET+=" wayland wayland-protocols"
+  PKG_MAKE_OPTS_TARGET+=" HAVE_WAYLAND=1"
   PKG_CONFIGURE_OPTS_TARGET+=" --enable-wayland"
 else
   PKG_CONFIGURE_OPTS_TARGET+=" --disable-wayland"
