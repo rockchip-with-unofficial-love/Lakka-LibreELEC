@@ -323,6 +323,7 @@
                   vbam \
                   vecx \
                   vice \
+                  vircon32 \
                   virtualjaguar \
                   vitaquake2 \
                   vitaquake3 \
@@ -384,6 +385,7 @@
                                uae4arm \
                                vbam \
                                virtualjaguar \
+                               vircon32 \
                                vitaquake2 \
                                yabause \
                               "
