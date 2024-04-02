@@ -1,0 +1,26 @@
+################################################################################
+# Device defaults
+################################################################################
+
+  # The TARGET_CPU variable controls which processor should be targeted for
+  # generated code.
+    case $TARGET_ARCH in
+      aarch64)
+        TARGET_FLOAT="hard"
+        TARGET_CPU="cortex-a53"
+        TARGET_FPU="neon-fp-armv8"
+        TARGET_CPU_FLAGS="+crc"
+        ;;
+    esac
+
+# NOOBS supported hex versions (legacy)
+    NOOBS_HEX="1040,1041,2082"
+
+  # NOOBS supported model versions
+    NOOBS_SUPPORTED_MODELS='"Pi 3"'
+
+  # Specific to GPICase
+    CEC_FRAMEWORK_SUPPORT="no"
+
+# Kernel target
+    KERNEL_TARGET="Image"
