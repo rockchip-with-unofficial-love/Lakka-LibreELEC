@@ -53,6 +53,7 @@ function do_mkimage() {
     EXTRA_CMDLINE="${EXTRA_CMDLINE}" \
     SYSTEM_SIZE="${SYSTEM_SIZE}" \
     SYSTEM_PART_START="${SYSTEM_PART_START}" \
+    STORAGE_SIZE="${STORAGE_SIZE:-32}" \
     OVA_SIZE="${OVA_SIZE}" \
     SKIP_VIRTUAL_APPLIANCE="${SKIP_VIRTUAL_APPLIANCE}" \
     LAKKA_DEVBUILD="${LAKKA_DEVBUILD:-no}" \
@@ -509,6 +510,9 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
         -e "s%@SYSTEM_SIZE@%${SYSTEM_SIZE}%g" \
         -i ${RELEASE_DIR}/${NOOBS_DISTRO}/partitions.json
 
+    sed -e "s%@EXTRA_CMDLINE@%${EXTRA_CMDLINE}%g" \
+        -i ${RELEASE_DIR}/${NOOBS_DISTRO}/partition_setup.sh
+
     # Create System dir
     mkdir -p ${RELEASE_DIR}/${NOOBS_DISTRO}/System
 
@@ -520,9 +524,11 @@ if [ "${1}" = "release" -o "${1}" = "mkimage" -o "${1}" = "noobs" ]; then
       fi
     done
     cp -PR ${INSTALL}/usr/share/bootloader/LICENCE* ${RELEASE_DIR}/${NOOBS_DISTRO}/System/
-    cp -PR ${INSTALL}/usr/share/bootloader/bootcode.bin ${RELEASE_DIR}/${NOOBS_DISTRO}/System/
-    cp -PR ${INSTALL}/usr/share/bootloader/fixup.dat ${RELEASE_DIR}/${NOOBS_DISTRO}/System/
-    cp -PR ${INSTALL}/usr/share/bootloader/start.elf ${RELEASE_DIR}/${NOOBS_DISTRO}/System/
+    for f in bootcode.bin fixup.dat start.elf ; do
+      if [ -f "${INSTALL}/usr/share/bootloader/$f" ]; then
+        cp -PR "${INSTALL}/usr/share/bootloader/$f" "${RELEASE_DIR}/${NOOBS_DISTRO}/System/"
+      fi
+    done
 
     # Copy system files
     cp ${TARGET_IMG}/${IMAGE_NAME}.system ${RELEASE_DIR}/${NOOBS_DISTRO}/System/SYSTEM

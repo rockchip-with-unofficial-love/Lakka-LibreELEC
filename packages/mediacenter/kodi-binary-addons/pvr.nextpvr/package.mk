@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.nextpvr"
-PKG_VERSION="20.4.0-Nexus"
-PKG_SHA256="9b9ae55b126ee0ca42a94d2a447167c0d61be36de336a4b236c0879b9b0832e3"
-PKG_REV="2"
+PKG_VERSION="21.0.2-Omega"
+PKG_SHA256="394ccca4c428e71e18cda4debc14d7eba2b4cc098a290a593ffa76a76c55fc90"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.nextpvr"

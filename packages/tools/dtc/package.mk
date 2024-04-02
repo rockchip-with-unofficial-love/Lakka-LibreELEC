@@ -3,8 +3,8 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="dtc"
-PKG_VERSION="1.6.1"
-PKG_SHA256="264d355e2e547a4964d55b83b113f89be1aea5e61dbe0547ab798d0fde2be180"
+PKG_VERSION="1.7.0"
+PKG_SHA256="8bca9b594702267d84453e530cc974b7f8e06aea7e60d65614d4bf23be3167d2"
 PKG_LICENSE="GPL"
 PKG_SITE="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/"
 PKG_URL="https://git.kernel.org/pub/scm/utils/dtc/dtc.git/snapshot/${PKG_VERSION}.tar.gz"
@@ -44,4 +44,8 @@ makeinstall_target() {
     cp -P ${PKG_BUILD}/.${TARGET_NAME}/fdtget ${INSTALL}/usr/bin/
   mkdir -p ${INSTALL}/usr/lib
     cp -P ${PKG_BUILD}/.${TARGET_NAME}/libfdt/{libfdt.so,libfdt.so.1} ${INSTALL}/usr/lib/
+  mkdir -p ${SYSROOT_PREFIX}/usr/lib
+    cp -P ${PKG_BUILD}/.${TARGET_NAME}/libfdt/{libfdt.so,libfdt.so.1} ${SYSROOT_PREFIX}/usr/lib/
+  mkdir -p ${SYSROOT_PREFIX}/usr/include
+    cp -P ${PKG_BUILD}/.${TARGET_NAME}/libfdt/*.h ${SYSROOT_PREFIX}/usr/include/
 }

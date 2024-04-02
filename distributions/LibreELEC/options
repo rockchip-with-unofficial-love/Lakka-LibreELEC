@@ -56,6 +56,13 @@
 # Install glibc locales to the build (yes / no)
   GLIBC_LOCALES="yes"
 
+# Install arm-mem package on ARM32 (yes / no)
+  if [ "${TARGET_ARCH}" = "arm" ]; then
+    ARM_MEM_SUPPORT="yes"
+  else
+    ARM_MEM_SUPPORT="no"
+  fi
+
 # additional drivers to install:
 # for a list of additional drivers see packages/linux-drivers
 # Space separated list is supported,
@@ -67,6 +74,9 @@
 
 # Default system partition offset, in sectors, eg. 2048
   SYSTEM_PART_START=8192
+
+# Size of storage partition, in MB. Must be >=32
+  STORAGE_SIZE=32
 
 # build with swap support (yes / no)
   SWAP_SUPPORT="yes"
@@ -186,9 +196,6 @@
   DEBUG_GROUPS="kodi+=kodi+,kodi-platform+,p8-platform+,!mesa"
   DEBUG_GROUP_YES="kodi+"
 
-# wireless daemon to use (wpa_supplicant/iwd)
-  WIRELESS_DAEMON="iwd"
-
 # build and install iSCSI support - iscsistart (yes / no)
   ISCSI_SUPPORT="no"
 
@@ -218,9 +225,6 @@
 # Support for partitioning and formating disks in initramfs (yes / no)
 # This adds support for parted and mkfs.ext3/4 to initramfs for OEM usage
   INITRAMFS_PARTED_SUPPORT="no"
-
-# build and install hfs filesystem utilities (yes / no)
-  HFSTOOLS="yes"
 
 # build and install nano text editor (yes / no)
   NANO_EDITOR="yes"

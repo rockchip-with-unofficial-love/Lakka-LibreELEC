@@ -6,7 +6,7 @@ PKG_VERSION=""
 PKG_LICENSE="various"
 PKG_SITE="https://libreelec.tv"
 PKG_URL=""
-PKG_DEPENDS_TARGET="toolchain connman netbase ethtool openssh iw wireless-regdb"
+PKG_DEPENDS_TARGET="toolchain connman netbase ethtool openssh iw wireless-regdb nss"
 PKG_SECTION="virtual"
 PKG_LONGDESC="Metapackage for various packages to install network support"
 
@@ -16,6 +16,10 @@ fi
 
 if [ "${SAMBA_SERVER}" = "yes" ] || [ "${SAMBA_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" samba"
+fi
+
+if [ "${SAMBA_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" cifs-utils"
 fi
 
 if [ "${OPENVPN_SUPPORT}" = "yes" ]; then
@@ -30,7 +34,7 @@ if [ "${ISCSI_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" open-iscsi"
 fi
 
-# nss needed by inputstream.adaptive, chromium etc.
-if [ "${TARGET_ARCH}" = "x86_64" ] || [ "${TARGET_ARCH}" = "arm" ] || [ "${TARGET_ARCH}" = "i386" ]; then
-  PKG_DEPENDS_TARGET+=" nss"
+if [ "${NFS_SUPPORT}" = "yes" ]; then
+  PKG_DEPENDS_TARGET+=" nfs-utils"
 fi
+

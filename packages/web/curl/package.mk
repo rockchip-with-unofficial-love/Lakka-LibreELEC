@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="curl"
-PKG_VERSION="7.86.0"
-PKG_SHA256="2d61116e5f485581f6d59865377df4463f2e788677ac43222b496d4e49fb627b"
+PKG_VERSION="8.6.0"
+PKG_SHA256="3ccd55d91af9516539df80625f818c734dc6f2ecf9bada33c76765e99121db15"
 PKG_LICENSE="MIT"
 PKG_SITE="https://curl.haxx.se"
 PKG_URL="https://curl.haxx.se/download/${PKG_NAME}-${PKG_VERSION}.tar.xz"
@@ -40,28 +40,20 @@ PKG_CONFIGURE_OPTS_TARGET="ac_cv_lib_rtmp_RTMP_Init=yes \
                            --enable-libgcc \
                            --enable-ipv6 \
                            --enable-versioned-symbols \
-                           --enable-nonblocking \
                            --enable-threaded-resolver \
                            --enable-verbose \
                            --disable-sspi \
-                           --enable-crypto-auth \
                            --enable-cookies \
                            --enable-symbol-hiding \
-                           --disable-soname-bump \
                            --with-gnu-ld \
-                           --without-krb4 \
-                           --without-spnego \
                            --without-gssapi \
                            --with-zlib \
                            --without-brotli \
                            --without-zstd \
-                           --without-egd-socket \
-                           --enable-thread \
                            --with-random=/dev/urandom \
                            --without-gnutls \
                            --with-ssl \
                            --without-mbedtls \
-                           --without-nss \
                            --with-ca-bundle=/run/libreelec/cacert.pem \
                            --without-ca-path \
                            --without-libpsl \

@@ -2,6 +2,19 @@
 # Device defaults
 ################################################################################
 
+  # The TARGET_CPU variable controls which processor should be targeted for
+  # generated code.
+    case $TARGET_ARCH in
+      aarch64)
+        TARGET_CPU="cortex-a53"
+        TARGET_CPU_FLAGS="+crc"
+        TARGET_FPU="neon-fp-armv8"
+        TARGET_FLOAT="hard"
+        KERNEL_TARGET="Image"
+        ADDITIONAL_PACKAGES+=" rpi_userland"
+      ;;
+    esac
+
   # NOOBS supported hex versions (legacy)
     NOOBS_HEX="1040,1041,2082"
 

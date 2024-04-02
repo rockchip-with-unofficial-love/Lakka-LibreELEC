@@ -16,15 +16,15 @@ PKG_PATCH_DIRS="${LINUX}"
 
 case "${LINUX}" in
   amlogic)
-    PKG_VERSION="d60c95efffe84428e3611431bf688f50bfc13f4e" # 6.1.11
-    PKG_SHA256="e6d5524d72b0ccb047a429f4d46a119a823622507c14985e95f8aa3e2600a779"
+    PKG_VERSION="e8f897f4afef0031fe618a8e94127a0934896aba" # 6.8.0
+    PKG_SHA256="52608771cc42196f0a7a71a93270a27ca5f7ba1d9280fb398e521b0620a7a3ac"
     PKG_URL="https://github.com/torvalds/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     PKG_PATCH_DIRS="default"
     ;;
   raspberrypi)
-    PKG_VERSION="eaf07c3a977e7210896bf66e65969252741b9d74" # 6.1.10
-    PKG_SHA256="f0c0dff91bcb8b328e678708d5012b4dfae62af042c3b19ede4545e27f9d3d85"
+    PKG_VERSION="8c3e7a55220cb7cb13131bb8dccd37694537eb97" # 6.6.23
+    PKG_SHA256="59d78e29305ef03fed0e63b997b36690cc1f89276d7421bdcaed9ca926222f5a"
     PKG_URL="https://github.com/raspberrypi/linux/archive/${PKG_VERSION}.tar.gz"
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
@@ -45,8 +45,8 @@ case "${LINUX}" in
    PKG_GIT_CLONE_BRANCH="sdm845-5.19.16"
    ;;
   *)
-    PKG_VERSION="6.1.11"
-    PKG_SHA256="581b0560077863c5116512c0b5fd93b97814092c80e6ebebabe88101949af7a1"
+    PKG_VERSION="6.6.23"
+    PKG_SHA256="200fd119cb9ef06bcedcdb52be00ba443163eab154295c5831fed9a12211a8b9"
     PKG_URL="https://www.kernel.org/pub/linux/kernel/v${PKG_VERSION/.*/}.x/${PKG_NAME}-${PKG_VERSION}.tar.xz"
     PKG_PATCH_DIRS="default"
     ;;
@@ -347,7 +347,14 @@ pre_make_target() {
   elif [ "${DISTRO}" = "Lakka" ]; then
     kernel_make olddefconfig
   else
-    kernel_make oldconfig
+    kernel_make listnewconfig
+    if [ "${INTERACTIVE_CONFIG}" = "yes" ]; then
+      # manually answer .config changes
+      kernel_make oldconfig
+    else
+      # accept default answers for .config changes
+      yes "" | kernel_make oldconfig > /dev/null
+    fi
   fi
 
   if [ -f "${DISTRO_DIR}/${DISTRO}/kernel_options" ]; then
@@ -382,9 +389,8 @@ make_target() {
 
   if [ "${LINUX}" = "L4T" ]; then
      export KCFLAGS+=" -Wno-stringop-truncation -Wno-error=stringop-overflow -Wno-maybe-uninitialized -Wno-address-of-packed-member -Wno-packed-not-aligned -Wno-array-bounds"
-  fi
 
-  DTC_FLAGS=-@ kernel_make TOOLCHAIN="${TOOLCHAIN}" ${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD} modules
+  DTC_FLAGS=-@ kernel_make ${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD} modules
 
   if [ ! "${LINUX}" = "L4T" ]; then
     if [ "${PKG_BUILD_PERF}" = "yes" ]; then
@@ -410,6 +416,7 @@ make_target() {
         NO_GTK2=1 \
         NO_LIBNUMA=1 \
         NO_LIBAUDIT=1 \
+        NO_LIBTRACEEVENT=1 \
         NO_LZMA=1 \
         NO_SDT=1 \
         CROSS_COMPILE="${TARGET_PREFIX}" \
@@ -420,7 +427,7 @@ make_target() {
       )
     fi
   fi
-  
+
   if [ -n "${KERNEL_UIMAGE_TARGET}" ]; then
     # determine compression used for kernel image
     KERNEL_UIMAGE_COMP=${KERNEL_UIMAGE_TARGET:7}
@@ -468,7 +475,9 @@ makeinstall_target() {
     fi
   elif [ "${BOOTLOADER}" = "u-boot" ]; then
     mkdir -p ${INSTALL}/usr/share/bootloader
-    for dtb in arch/${TARGET_KERNEL_ARCH}/boot/dts/*.dtb arch/${TARGET_KERNEL_ARCH}/boot/dts/*/*.dtb; do
+    for dtb in arch/${TARGET_KERNEL_ARCH}/boot/dts/*.dtb \
+               arch/${TARGET_KERNEL_ARCH}/boot/dts/*/*.dtb \
+               arch/${TARGET_KERNEL_ARCH}/boot/dts/*/*/*.dtb; do
       if [ -f ${dtb} ]; then
         cp -v ${dtb} ${INSTALL}/usr/share/bootloader
       fi
@@ -484,7 +493,9 @@ makeinstall_target() {
 
     # install platform dtbs, but remove upstream kernel dtbs (i.e. without downstream
     # drivers and decent USB support) as these are not required by LibreELEC
-    for dtb in arch/${TARGET_KERNEL_ARCH}/boot/dts/*.dtb arch/${TARGET_KERNEL_ARCH}/boot/dts/*/*.dtb; do
+    for dtb in arch/${TARGET_KERNEL_ARCH}/boot/dts/*.dtb \
+               arch/${TARGET_KERNEL_ARCH}/boot/dts/*/*.dtb \
+               arch/${TARGET_KERNEL_ARCH}/boot/dts/*/*/*.dtb; do
       if [ -f ${dtb} ]; then
         cp -v ${dtb} ${INSTALL}/usr/share/bootloader
       fi

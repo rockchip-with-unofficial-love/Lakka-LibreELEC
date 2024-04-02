@@ -18,8 +18,6 @@ if [ -z "${SYSTEM_SIZE}" -o -z "${SYSTEM_PART_START}" ]; then
   exit 1
 fi
 
-STORAGE_SIZE=32 # STORAGE_SIZE must be >= 32 !
-
 DISK_START_PADDING=$(( (${SYSTEM_PART_START} + 2048 - 1) / 2048 ))
 DISK_GPT_PADDING=1
 DISK_SIZE=$(( ${DISK_START_PADDING} + ${SYSTEM_SIZE} + ${STORAGE_SIZE} + ${DISK_GPT_PADDING} ))
@@ -94,7 +92,7 @@ dd if="${DISK}" of="${LE_TMP}/part2.ext4" bs=512 count=0 seek="${STORAGE_PART_CO
 
 # create filesystem on part2
 echo "image: creating filesystem on part2..."
-mke2fs -F -q -t ext4 -m 0 "${LE_TMP}/part2.ext4"
+mke2fs -F -q -t ext4 -O ^orphan_file -m 0 "${LE_TMP}/part2.ext4"
 tune2fs -L "${DISTRO_DISKLABEL}" -U ${UUID_STORAGE} "${LE_TMP}/part2.ext4" >"${SAVE_ERROR}" 2>&1 || show_error
 e2fsck -n "${LE_TMP}/part2.ext4" >"${SAVE_ERROR}" 2>&1 || show_error
 sync
@@ -285,9 +283,12 @@ EOF
   mcopy "${RELEASE_DIR}/target/KERNEL.md5" "::/${KERNEL_NAME}.md5" >"${SAVE_ERROR}" 2>&1 || show_error
   mcopy "${RELEASE_DIR}/target/SYSTEM.md5" ::/SYSTEM.md5 >"${SAVE_ERROR}" 2>&1 || show_error
 
-  mcopy "${RELEASE_DIR}/3rdparty/bootloader/bootcode.bin" :: >"${SAVE_ERROR}" 2>&1 || show_error
-  mcopy "${RELEASE_DIR}/3rdparty/bootloader/fixup.dat" :: >"${SAVE_ERROR}" 2>&1 || show_error
-  mcopy "${RELEASE_DIR}/3rdparty/bootloader/start.elf" :: >"${SAVE_ERROR}" 2>&1 || show_error
+  for f in bootcode.bin fixup.dat start.elf ; do
+    if [ -f "${RELEASE_DIR}/3rdparty/bootloader/$f" ]; then
+      mcopy "${RELEASE_DIR}/3rdparty/bootloader/$f" :: >"${SAVE_ERROR}" 2>&1 || show_error
+    fi
+  done
+
   mcopy "${RELEASE_DIR}/3rdparty/bootloader/config.txt" :: >"${SAVE_ERROR}" 2>&1 || show_error
   for distro in "${RELEASE_DIR}/3rdparty/bootloader/distroconfig"*.txt ; do
     if [ -f "${distro}" ]; then

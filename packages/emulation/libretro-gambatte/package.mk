@@ -2,17 +2,20 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-gambatte"
-PKG_VERSION="ca0f7e14c55698a8eb81ea5af58701173e85bc7f"
-PKG_SHA256="2bf266ffeaff920b16a6153a6b0b2a85f350a548f1cabdf22954c509153b595d"
+PKG_VERSION="27123e99d3f525b57199adeeb25d12c9dc0008e2"
+PKG_SHA256="6a3421ef3a28bd63b185bf03a348e073efef46a7e4101f977c8642fabd7eb2dc"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/gambatte-libretro"
 PKG_URL="https://github.com/libretro/gambatte-libretro/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_LONGDESC="game.libretro.gambatte: Gambatte for Kodi"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_LONGDESC="libretro implementation of libgambatte, an open-source Game Boy Color emulator written for fun and made available in the hope that it will be useful."
+PKG_TOOLCHAIN="make"
 
 PKG_LIBNAME="gambatte_libretro.so"
 PKG_LIBPATH="${PKG_LIBNAME}"
 PKG_LIBVAR="GAMBATTE_LIB"
+
+PKG_MAKE_OPTS_TARGET="-f Makefile.libretro"
 
 makeinstall_target() {
   mkdir -p ${SYSROOT_PREFIX}/usr/lib/cmake/${PKG_NAME}

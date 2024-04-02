@@ -2,14 +2,13 @@
 # Copyright (C) 2021-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="bemenu"
-PKG_VERSION="0.6.14"
-PKG_SHA256="bc945776f94901d0898d19725d3a4c3e1f5bc90712a5bae9ec98d89d24603a9d"
+PKG_VERSION="0.6.21"
+PKG_SHA256="854901e8d8aa45c20a284263e43d2d02c413d3b69bf2b854b5ed6d09117560ef"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/Cloudef/bemenu"
 PKG_URL="https://github.com/Cloudef/bemenu/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain glib wayland wayland-protocols cairo pango libxkbcommon"
 PKG_LONGDESC="Dynamic menu library and client program inspired by dmenu"
-PKG_TOOLCHAIN="make"
 
 PKG_MAKE_OPTS_TARGET="PREFIX=/usr clients wayland"
 

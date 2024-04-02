@@ -2,21 +2,18 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-beetle-vb"
-PKG_VERSION="3e845666d7ce235a071eb306e94074f1a72633bf"
-PKG_SHA256="50804a63e430b18d40ff35c8bd2cba5db02c9490399e21f4cf8c6901f1ad6650"
+PKG_VERSION="9d1bd03f21dac7897f65269e1095496331efce8b"
+PKG_SHA256="7c3d8fd2f8535be7de6f76be010ec6d34837d7c30caeb0096cae6e5c1e07c442"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-vb-libretro"
 PKG_URL="https://github.com/libretro/beetle-vb-libretro/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_LONGDESC="Standalone port of Mednafen VB to libretro"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_LONGDESC="libretro implementation of Mednafen VB (VirtualBoy)"
+PKG_TOOLCHAIN="make"
 
 PKG_LIBNAME="mednafen_vb_libretro.so"
 PKG_LIBPATH="${PKG_LIBNAME}"
 PKG_LIBVAR="BEETLE-VB_LIB"
-
-make_target() {
-  make
-}
 
 makeinstall_target() {
   mkdir -p ${SYSROOT_PREFIX}/usr/lib/cmake/${PKG_NAME}

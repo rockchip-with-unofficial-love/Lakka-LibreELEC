@@ -3,18 +3,15 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="llvm"
-PKG_VERSION="15.0.7"
-PKG_SHA256="8b5fcb24b4128cf04df1b0b9410ce8b1a729cb3c544e6da885d234280dedeac6"
-PKG_ARCH="x86_64"
+PKG_VERSION="17.0.6"
+PKG_SHA256="58a8818c60e6627064f312dbf46c02d9949956558340938b71cf731ad8bc0813"
 PKG_LICENSE="Apache-2.0"
 PKG_SITE="http://llvm.org/"
-PKG_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${PKG_VERSION}/llvm-project-${PKG_VERSION}.src.tar.xz"
+PKG_URL="https://github.com/llvm/llvm-project/releases/download/llvmorg-${PKG_VERSION}/llvm-project-${PKG_VERSION/-/}.src.tar.xz"
 PKG_DEPENDS_HOST="toolchain:host"
 PKG_DEPENDS_TARGET="toolchain llvm:host zlib"
 PKG_LONGDESC="Low-Level Virtual Machine (LLVM) is a compiler infrastructure."
 PKG_TOOLCHAIN="cmake"
-
-[ "${DISTRO}" = "Lakka" ] && PKG_ARCH+=" i386" || true
 
 PKG_CMAKE_OPTS_COMMON="-DLLVM_INCLUDE_TOOLS=ON \
                        -DLLVM_BUILD_TOOLS=OFF \
@@ -23,7 +20,6 @@ PKG_CMAKE_OPTS_COMMON="-DLLVM_INCLUDE_TOOLS=ON \
                        -DLLVM_INCLUDE_EXAMPLES=OFF \
                        -DLLVM_BUILD_TESTS=OFF \
                        -DLLVM_INCLUDE_TESTS=OFF \
-                       -DLLVM_INCLUDE_GO_TESTS=OFF \
                        -DLLVM_BUILD_BENCHMARKS=OFF \
                        -DLLVM_INCLUDE_BENCHMARKS=OFF \
                        -DLLVM_BUILD_DOCS=OFF \
@@ -52,15 +48,27 @@ pre_configure() {
 }
 
 pre_configure_host() {
-  case "${TARGET_ARCH}" in
-    "arm")
-      LLVM_BUILD_TARGETS="X86\;ARM"
-      ;;
+  case "${MACHINE_HARDWARE_NAME}" in
     "aarch64")
-      LLVM_BUILD_TARGETS="X86\;AArch64"
+      LLVM_BUILD_TARGETS="AArch64"
+      ;;
+    "arm")
+      LLVM_BUILD_TARGETS="ARM"
       ;;
     "x86_64" | "i386")
-      LLVM_BUILD_TARGETS="X86\;AMDGPU"
+      LLVM_BUILD_TARGETS="X86"
+      ;;
+  esac
+
+  case "${TARGET_ARCH}" in
+    "aarch64")
+      LLVM_BUILD_TARGETS+="\;AArch64"
+      ;;
+    "arm")
+      LLVM_BUILD_TARGETS+="\;ARM"
+      ;;
+    "x86_64" | "i386")
+      LLVM_BUILD_TARGETS+="\;X86\;AMDGPU"
       ;;
   esac
 

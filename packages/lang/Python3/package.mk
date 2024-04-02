@@ -3,8 +3,8 @@
 
 PKG_NAME="Python3"
 # When changing PKG_VERSION remember to sync PKG_PYTHON_VERSION!
-PKG_VERSION="3.11.2"
-PKG_SHA256="29e4b8f5f1658542a8c13e2dd277358c9c48f2b2f7318652ef1675e402b9d2af"
+PKG_VERSION="3.11.9"
+PKG_SHA256="9b1e896523fc510691126c864406d9360a3d1e986acbda59cda57b5abda45b87"
 PKG_LICENSE="OSS"
 PKG_SITE="https://www.python.org/"
 PKG_URL="https://www.python.org/ftp/python/${PKG_VERSION}/${PKG_NAME::-1}-${PKG_VERSION}.tar.xz"
@@ -42,7 +42,7 @@ PKG_CONFIGURE_OPTS_HOST="ac_cv_prog_HAS_HG=/bin/false
                          --with-doc-strings
                          --with-system-ffi
                          --without-pymalloc
-                         --without-ensurepip
+                         --with-ensurepip=no
 "
 
 PKG_CONFIGURE_OPTS_TARGET="ac_cv_prog_HAS_HG=/bin/false
@@ -89,6 +89,10 @@ pre_configure_host() {
   export PYTHON_MODULES_INCLUDE="${HOST_INCDIR}"
   export PYTHON_MODULES_LIB="${HOST_LIBDIR}"
   export DISABLED_EXTENSIONS="readline _curses _curses_panel ${PKG_PY_DISABLED_MODULES}"
+  # control patch Python3-0300-generate-legacy-pyc-bytecode
+  # this needs to be set when building host based py file
+  # do not set this for py compiles being done for target use
+  export DONT_BUILD_LEGACY_PYC=1
 }
 
 post_make_host() {

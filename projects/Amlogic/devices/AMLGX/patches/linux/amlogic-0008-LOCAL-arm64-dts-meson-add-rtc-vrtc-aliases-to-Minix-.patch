@@ -1,8 +1,8 @@
-From d2f7e226584a6b78399478299fd5ba3a2e1d671c Mon Sep 17 00:00:00 2001
+From 83e3e72c22bd9261d248c2dda723d5fb3abd4ab9 Mon Sep 17 00:00:00 2001
 From: Christian Hewitt <christianshewitt@gmail.com>
 Date: Mon, 1 Feb 2021 19:27:40 +0000
-Subject: [PATCH 008/111] LOCAL: arm64: dts: meson: add rtc/vrtc aliases to
- Minix NEO U9-H
+Subject: [PATCH 08/53] LOCAL: arm64: dts: meson: add rtc/vrtc aliases to Minix
+ NEO U9-H
 
 Add node aliases to prevent meson-vrtc from claiming /dev/rtc0
 
@@ -12,7 +12,7 @@ Signed-off-by: Christian Hewitt <christianshewitt@gmail.com>
  1 file changed, 5 insertions(+)
 
 diff --git a/arch/arm64/boot/dts/amlogic/meson-gxm-minix-neo-u9h.dts b/arch/arm64/boot/dts/amlogic/meson-gxm-minix-neo-u9h.dts
-index b8ef3bd8b840..0920e7b096f5 100644
+index 1703da3235ea..b929682805dd 100644
 --- a/arch/arm64/boot/dts/amlogic/meson-gxm-minix-neo-u9h.dts
 +++ b/arch/arm64/boot/dts/amlogic/meson-gxm-minix-neo-u9h.dts
 @@ -14,6 +14,11 @@ / {

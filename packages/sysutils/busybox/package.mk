@@ -3,12 +3,12 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="busybox"
-PKG_VERSION="1.32.1"
-PKG_SHA256="9d57c4bd33974140fd4111260468af22856f12f5b5ef7c70c8d9b75c712a0dee"
+PKG_VERSION="1.36.1"
+PKG_SHA256="b8cc24c9574d809e7279c3be349795c5d5ceb6fdf19ca709f80cde50e47de314"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.busybox.net"
 PKG_URL="https://busybox.net/downloads/${PKG_NAME}-${PKG_VERSION}.tar.bz2"
-PKG_DEPENDS_TARGET="toolchain hdparm dosfstools e2fsprogs zip usbutils parted procps-ng gptfdisk libtirpc"
+PKG_DEPENDS_TARGET="toolchain hdparm dosfstools e2fsprogs zip usbutils parted procps-ng libtirpc"
 PKG_DEPENDS_INIT="toolchain libtirpc"
 PKG_LONGDESC="BusyBox combines tiny versions of many common UNIX utilities into a single small executable."
 PKG_BUILD_FLAGS="-parallel"
@@ -16,11 +16,6 @@ PKG_BUILD_FLAGS="-parallel"
 # nano text editor
 if [ "${NANO_EDITOR}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" nano"
-fi
-
-# nfs support
-if [ "${NFS_SUPPORT}" = yes ]; then
-  PKG_DEPENDS_TARGET+=" rpcbind"
 fi
 
 if [ "${TARGET_ARCH}" = "x86_64" -o "${TARGET_ARCH}" = "i386" ]; then
@@ -108,6 +103,9 @@ makeinstall_target() {
       cp ${PKG_DIR}/scripts/update-bootloader-edid-rpi ${INSTALL}/usr/bin/update-bootloader-edid
       cp ${PKG_DIR}/scripts/getedid-drm ${INSTALL}/usr/bin/getedid
     fi
+    if [ "${PROJECT}" = "Amlogic" ]; then
+      cp ${PKG_DIR}/scripts/update-bootloader-edid-amlogic ${INSTALL}/usr/bin/getedid
+    fi
     cp ${PKG_DIR}/scripts/createlog ${INSTALL}/usr/bin/
     if [ "${DISTRO}" = "Lakka" ]; then
       cp ${PKG_DIR}/scripts/createlog-lakka ${INSTALL}/usr/bin/createlog
@@ -122,6 +120,8 @@ makeinstall_target() {
     cp ${PKG_DIR}/scripts/apt-get ${INSTALL}/usr/bin/
     cp ${PKG_DIR}/scripts/sudo ${INSTALL}/usr/bin/
     cp ${PKG_DIR}/scripts/pastebinit ${INSTALL}/usr/bin/
+      sed -e "s/@DISTRONAME@-@OS_VERSION@/${DISTRONAME}-$OS_VERSION/g" \
+          -i ${INSTALL}/usr/bin/pastebinit
       ln -sf pastebinit ${INSTALL}/usr/bin/paste
     cp ${PKG_DIR}/scripts/vfd-clock ${INSTALL}/usr/bin/
 

@@ -2,21 +2,18 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-beetle-wswan"
-PKG_VERSION="05ec7364913a95d8bb8691a41505d3d66b9e8367"
-PKG_SHA256="e0553ac593b73b8a03f33a0cd79f8d967baed65d11ca2b002fce0ccdd3deafe7"
+PKG_VERSION="32bf70a3032a138baa969c22445f4b7821632c30"
+PKG_SHA256="457028d9ec6e76e0ec3e2e69a40b1bac392dae4fa4aca724c8a1500dbc54fc8c"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/beetle-wswan-libretro"
 PKG_URL="https://github.com/libretro/beetle-wswan-libretro/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_LONGDESC="Standalone port of Mednafen WonderSwan to libretro, itself a fork of Cygne"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_LONGDESC="libretro implementation of Mednafen wswan"
+PKG_TOOLCHAIN="make"
 
 PKG_LIBNAME="mednafen_wswan_libretro.so"
 PKG_LIBPATH="${PKG_LIBNAME}"
 PKG_LIBVAR="BEETLE-WSWAN_LIB"
-
-make_target() {
-  make
-}
 
 makeinstall_target() {
   mkdir -p ${SYSROOT_PREFIX}/usr/lib/cmake/${PKG_NAME}

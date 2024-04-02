@@ -3,11 +3,11 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libxcb"
-PKG_VERSION="1.15"
-PKG_SHA256="cc38744f817cf6814c847e2df37fcb8997357d72fa4bcbc228ae0fe47219a059"
+PKG_VERSION="1.16.1"
+PKG_SHA256="f24d187154c8e027b358fc7cb6588e35e33e6a92f11c668fe77396a7ae66e311"
 PKG_LICENSE="OSS"
-PKG_SITE="http://xcb.freedesktop.org"
-PKG_URL="http://xcb.freedesktop.org/dist/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_SITE="https://xcb.freedesktop.org"
+PKG_URL="https://xorg.freedesktop.org/archive/individual/lib/${PKG_NAME}-${PKG_VERSION}.tar.xz"
 PKG_DEPENDS_TARGET="toolchain util-macros Python3:host xcb-proto libpthread-stubs libXau"
 PKG_LONGDESC="X C-language Bindings library."
 PKG_BUILD_FLAGS="+pic"

@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="mesa"
-PKG_VERSION="22.3.5"
-PKG_SHA256="3eed2ecae2bc674494566faab9fcc9beb21cd804c7ba2b59a1694f3d7236e6a9"
+PKG_VERSION="24.0.4"
+PKG_SHA256="90febd30a098cbcd97ff62ecc3dcf5c93d76f7fa314de944cfce81951ba745f0"
 PKG_LICENSE="OSS"
 PKG_SITE="http://www.mesa3d.org/"
 PKG_URL="https://mesa.freedesktop.org/archive/mesa-${PKG_VERSION}.tar.xz"
@@ -13,8 +13,11 @@ PKG_LONGDESC="Mesa is a 3-D graphics library with an API."
 
 get_graphicdrivers
 
-PKG_MESON_OPTS_TARGET="-Ddri-drivers= \
-                       -Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
+if [ "${DEVICE}" = "Dragonboard" ]; then
+  PKG_DEPENDS_TARGET+=" libarchive libxml2 lua54"
+fi
+
+PKG_MESON_OPTS_TARGET="-Dgallium-drivers=${GALLIUM_DRIVERS// /,} \
                        -Dgallium-extra-hud=false \
                        -Dgallium-omx=disabled \
                        -Dgallium-nine=false \
@@ -28,6 +31,7 @@ PKG_MESON_OPTS_TARGET="-Ddri-drivers= \
                        -Dlibunwind=disabled \
                        -Dlmsensors=disabled \
                        -Dbuild-tests=false \
+                       -Ddraw-use-llvm=false \
                        -Dselinux=false \
                        -Dosmesa=false"
 
@@ -56,6 +60,10 @@ else
   PKG_MESON_OPTS_TARGET+=" -Dplatforms="" \
                            -Ddri3=disabled \
                            -Dglx=disabled"
+fi
+
+if listcontains "${GRAPHIC_DRIVERS}" "iris"; then
+  PKG_MESON_OPTS_TARGET+=" -Dintel-xe-kmd=enabled"
 fi
 
 if listcontains "${GRAPHIC_DRIVERS}" "(nvidia|nvidia-ng)"; then

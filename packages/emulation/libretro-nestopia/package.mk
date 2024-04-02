@@ -2,22 +2,20 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="libretro-nestopia"
-PKG_VERSION="cb1e24e2d6e5d49a85924a9d6dd9c470c109f537"
-PKG_SHA256="2fb5e7113d1c813881102da57a8d512e4689344c544a1ea38c6e356437bcf6a6"
+PKG_VERSION="3dcbec4682e079312d6943e1357487645ec608c7"
+PKG_SHA256="ec47efc8eab149182c5eb86cc68f80fbe30c077b7978f46ff6b9dffc50caff7b"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/nestopia"
 PKG_URL="https://github.com/libretro/nestopia/archive/${PKG_VERSION}.tar.gz"
-PKG_DEPENDS_TARGET="toolchain kodi-platform"
-PKG_LONGDESC="game.libretro.nestopia: Nestopia for Kodi"
-PKG_TOOLCHAIN="manual"
+PKG_DEPENDS_TARGET="toolchain"
+PKG_LONGDESC="Libretro implementation of NEStopia. (Nintendo Entertainment System)"
+PKG_TOOLCHAIN="make"
 
 PKG_LIBNAME="nestopia_libretro.so"
 PKG_LIBPATH="libretro/${PKG_LIBNAME}"
 PKG_LIBVAR="NESTOPIA_LIB"
 
-make_target() {
-  make -C libretro
-}
+PKG_MAKE_OPTS_TARGET="-C libretro/"
 
 makeinstall_target() {
   mkdir -p ${SYSROOT_PREFIX}/usr/lib/cmake/${PKG_NAME}

@@ -3,8 +3,8 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="systemd"
-PKG_VERSION="252.5"
-PKG_SHA256="cc57a54a323d9f813f59eb4d79c2e2ea987e27c9b5ad2079eb9d2756567d53ee"
+PKG_VERSION="255.4"
+PKG_SHA256="96e75bd08c57ad401677456fb88ef54a9f05bb1695693013bc6ecce839640fd5"
 PKG_LICENSE="LGPL2.1+"
 PKG_SITE="http://www.freedesktop.org/wiki/Software/systemd"
 PKG_URL="https://github.com/systemd/systemd-stable/archive/v${PKG_VERSION}.tar.gz"
@@ -18,45 +18,46 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Ddefault-hierarchy=unified \
                        -Dtty-gid=5 \
                        -Dtests=false \
-                       -Dseccomp=false \
-                       -Dselinux=false \
-                       -Dapparmor=false \
-                       -Dpolkit=false \
-                       -Dacl=false \
-                       -Daudit=false \
-                       -Dblkid=true \
-                       -Dfdisk=false \
-                       -Dkmod=true \
-                       -Dpam=false \
-                       -Dpwquality=false \
-                       -Dmicrohttpd=false \
-                       -Dlibcryptsetup=false \
-                       -Dlibcurl=false \
-                       -Dlibidn=false \
-                       -Dlibidn2=true \
-                       -Dlibiptc=false \
-                       -Dqrencode=false \
-                       -Dgcrypt=false \
-                       -Dgnutls=false \
-                       -Dopenssl=false \
-                       -Dp11kit=false \
-                       -Delfutils=false \
-                       -Dzlib=false \
-                       -Dbzip2=false \
-                       -Dxz=false \
-                       -Dlz4=false \
-                       -Dxkbcommon=false \
-                       -Dpcre2=false \
-                       -Dglib=false \
-                       -Ddbus=false \
+                       -Dseccomp=disabled \
+                       -Dselinux=disabled \
+                       -Dapparmor=disabled \
+                       -Dpolkit=disabled \
+                       -Dacl=disabled \
+                       -Daudit=disabled \
+                       -Dblkid=enabled \
+                       -Dfdisk=disabled \
+                       -Dkmod=enabled \
+                       -Dpam=disabled \
+                       -Dpwquality=disabled \
+                       -Dmicrohttpd=disabled \
+                       -Dlibcryptsetup=disabled \
+                       -Dlibcurl=disabled \
+                       -Dlibidn=disabled \
+                       -Dlibidn2=enabled \
+                       -Dlibiptc=disabled \
+                       -Dqrencode=disabled \
+                       -Dgcrypt=disabled \
+                       -Dgnutls=disabled \
+                       -Dopenssl=disabled \
+                       -Dp11kit=disabled \
+                       -Delfutils=disabled \
+                       -Dzlib=disabled \
+                       -Dbzip2=disabled \
+                       -Dxz=disabled \
+                       -Dlz4=disabled \
+                       -Dzstd=disabled \
+                       -Dxkbcommon=disabled \
+                       -Dpcre2=disabled \
+                       -Dglib=disabled \
+                       -Ddbus=disabled \
                        -Ddefault-dnssec=no \
-                       -Dimportd=false \
-                       -Dremote=false \
+                       -Dimportd=disabled \
+                       -Dremote=disabled \
                        -Dutmp=true \
                        -Dhibernate=false \
                        -Denvironment-d=false \
                        -Dbinfmt=false \
-                       -Drepart=false \
+                       -Drepart=disabled \
                        -Dcoredump=false \
                        -Dresolve=false \
                        -Dlogind=true \
@@ -65,7 +66,7 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dmachined=false \
                        -Dportabled=false \
                        -Duserdb=false \
-                       -Dhomed=false \
+                       -Dhomed=disabled \
                        -Dnetworkd=false \
                        -Dtimedated=false \
                        -Dtimesyncd=true \
@@ -85,11 +86,11 @@ PKG_MESON_OPTS_TARGET="--libdir=/usr/lib \
                        -Dgshadow=false \
                        -Didn=false \
                        -Dnss-myhostname=false \
-                       -Dnss-mymachines=false \
-                       -Dnss-resolve=false \
+                       -Dnss-mymachines=disabled \
+                       -Dnss-resolve=disabled \
                        -Dnss-systemd=false \
-                       -Dman=false \
-                       -Dhtml=false \
+                       -Dman=disabled \
+                       -Dhtml=disabled \
                        -Dlink-udev-shared=true \
                        -Dlink-systemctl-shared=true \
                        -Dlink-networkd-shared=false \
@@ -150,7 +151,6 @@ post_makeinstall_target() {
   safe_remove ${INSTALL}/usr/lib/systemd/system/*.target.wants/dev-hugepages.mount
   #
   safe_remove ${INSTALL}/usr/lib/systemd/system/systemd-journald-audit.socket
-  safe_remove ${INSTALL}/usr/lib/systemd/system/*.target.wants/systemd-journald-audit.socket
 
   # adjust systemd-hwdb-update (we have read-only /etc).
   sed '/^ConditionNeedsUpdate=.*$/d' -i ${INSTALL}/usr/lib/systemd/system/systemd-hwdb-update.service
@@ -203,7 +203,11 @@ post_makeinstall_target() {
 
   # tune logind.conf
   sed -e "s,^.*HandleLidSwitch=.*$,HandleLidSwitch=ignore,g" -i ${INSTALL}/etc/systemd/logind.conf
-  sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=ignore,g" -i ${INSTALL}/etc/systemd/logind.conf
+  if [ "${DISPLAYSERVER}" = "no" ]; then
+    sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=poweroff,g" -i ${INSTALL}/etc/systemd/logind.conf
+  else
+    sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=ignore,g" -i ${INSTALL}/etc/systemd/logind.conf
+  fi
 
   if [ "${DISTRO}" = "Lakka" -a "${PROJECT}" = "RPi" ]; then
     sed -e "s,^.*HandlePowerKey=.*$,HandlePowerKey=poweroff,g" -i $INSTALL/etc/systemd/logind.conf
@@ -273,20 +277,26 @@ post_install() {
   add_group systemd-network 193
   add_user systemd-network x 193 193 "systemd-network" "/" "/bin/sh"
 
-  add_group audio 63 pipewire
+  add_group systemd-oom 194
+  add_user systemd-oom x 194 194 "systemd Userspace OOM Killer" "/" "/bin/false"
+
+  add_group adm 4
+  add_group tty 5
+  add_group disk 6
+  add_group lp 7
+  add_group kmem 9
+  add_group wheel 10
   add_group cdrom 11
   add_group dialout 18
-  add_group disk 6
   add_group floppy 19
-  add_group kmem 9
-  add_group kvm 10
-  add_group lp 7
-  add_group render 12
-  add_group tape 33
-  add_group tty 5
-  add_group video 39 pipewire
   add_group utmp 22
-  add_group input 199
+  add_group tape 33
+  add_group kvm 36
+  add_group video 39 pipewire
+  add_group audio 63 pipewire
+  add_group input 104
+  add_group render 105
+  add_group sgx 106
 
   enable_service machine-id.service
   enable_service debugconfig.service

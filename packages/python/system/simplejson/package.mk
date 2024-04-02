@@ -3,8 +3,8 @@
 # Copyright (C) 2019-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="simplejson"
-PKG_VERSION="3.18.1"
-PKG_SHA256="746086e3ef6d74b53599df31b491d88a355abf2e31c837137dd90f8c4561cafa"
+PKG_VERSION="3.19.2"
+PKG_SHA256="9eb442a2442ce417801c912df68e1f6ccfcd41577ae7274953ab3ad24ef7d82c"
 PKG_LICENSE="OSS"
 PKG_SITE="http://pypi.org/project/simplejson"
 PKG_URL="https://files.pythonhosted.org/packages/source/${PKG_NAME:0:1}/${PKG_NAME}/${PKG_NAME}-${PKG_VERSION}.tar.gz"
@@ -14,6 +14,7 @@ PKG_TOOLCHAIN="manual"
 
 pre_make_target() {
   export PYTHONXCPREFIX="${SYSROOT_PREFIX}/usr"
+  export LDSHARED="${CC} -shared"
 }
 
 make_target() {

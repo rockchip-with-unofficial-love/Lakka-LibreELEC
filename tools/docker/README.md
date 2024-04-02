@@ -2,21 +2,18 @@
 
 **Docker containers**
 - Ubuntu
-  - bionic  (Ubuntu 18.04)
-  - focal   (Ubuntu 20.04)
-  - jammy   (Ubuntu 22.04)
-  - kinetic (Ubuntu 22.10)
+  - focal     (Ubuntu 20.04)
+  - jammy     (Ubuntu 22.04)
+  - noble     (Ubuntu 24.04)
 - Debian
-  - stretch (Debian  9.0)
-  - buster  (Debian 10.0)
-  - sid     (Debian unstable)
+  - bookworm  (Debian 12)
 
 **Build docker image**
 
 Use the following command to create a docker image and tag it with `libreelec`.
 
 ```
-docker build --pull -t libreelec tools/docker/focal
+docker build --pull -t libreelec tools/docker/jammy
 ```
 
 See https://docs.docker.com/engine/reference/commandline/build/ for details on `docker build` usage.

@@ -3,9 +3,9 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="pvr.iptvsimple"
-PKG_VERSION="20.7.0-Nexus"
-PKG_SHA256="6be5a80d28bd00e641f9470a66be93592b20483c0f33b243d52ff3bb9b4db934"
-PKG_REV="2"
+PKG_VERSION="21.8.3-Omega"
+PKG_SHA256="52108d15f8eaa58d7cd6d87947615758ffebcbf87a00090e71384cff4e59d25d"
+PKG_REV="1"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="https://github.com/kodi-pvr/pvr.iptvsimple"

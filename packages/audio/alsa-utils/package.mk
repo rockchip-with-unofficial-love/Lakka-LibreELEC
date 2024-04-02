@@ -3,13 +3,14 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="alsa-utils"
-PKG_VERSION="1.2.8"
-PKG_SHA256="e140fa604c351f36bd72167c8860c69d81b964ae6ab53992d6434dde38e9333c"
+PKG_VERSION="1.2.11"
+PKG_SHA256="9ac6ca3a883f151e568dcf979b8d2e5cbecc51b819bb0e6bb8a2e9b34cc428a7"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.alsa-project.org/"
 PKG_URL="https://www.alsa-project.org/files/pub/utils/alsa-utils-${PKG_VERSION}.tar.bz2"
 PKG_DEPENDS_TARGET="toolchain alsa-lib ncurses systemd"
 PKG_LONGDESC="This package includes the utilities for ALSA, like alsamixer, aplay, arecord, alsactl, iecset and speaker-test."
+PKG_TOOLCHAIN="autotools"
 
 PKG_CONFIGURE_OPTS_TARGET="--disable-alsaconf \
                            --disable-alsaloop \
@@ -19,6 +20,10 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-alsaconf \
                            --disable-nls \
                            --disable-rst2man \
                            --disable-xmlto"
+
+post_configure_target() {
+  libtool_remove_rpath libtool
+}
 
 post_makeinstall_target() {
   rm -rf ${INSTALL}/lib ${INSTALL}/var

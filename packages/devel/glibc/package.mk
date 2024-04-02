@@ -3,15 +3,19 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="glibc"
-PKG_VERSION="2.36"
-PKG_SHA256="1c959fea240906226062cb4b1e7ebce71a9f0e3c0836c09e7e3423d434fcfe75"
+PKG_VERSION="44f757a6364a546359809d48c76b3debd26e77d4"
+PKG_SHA256="9acdc19250bc6872265ec77eb9347cc0def5535c6017b0465385bce16bbbe619"
 PKG_LICENSE="GPL"
 PKG_SITE="https://www.gnu.org/software/libc/"
-PKG_URL="https://ftp.gnu.org/pub/gnu/glibc/${PKG_NAME}-${PKG_VERSION}.tar.xz"
+PKG_URL="https://github.com/bminor/glibc/archive/${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="ccache:host autotools:host linux:host gcc:bootstrap pigz:host Python3:host"
 PKG_DEPENDS_INIT="glibc"
 PKG_LONGDESC="The Glibc package contains the main C library."
 PKG_BUILD_FLAGS="+bfd"
+
+if [ "${TARGET_ARCH}" = "arm" ] || [ "${TARGET_ARCH}" = "aarch64" ]; then
+  PKG_PATCH_DIRS="widevine-arm"
+fi
 
 PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            ac_cv_path_PERL=no \
@@ -27,7 +31,7 @@ PKG_CONFIGURE_OPTS_TARGET="BASH_SHELL=/bin/sh \
                            --with-__thread \
                            --with-binutils=${BUILD}/toolchain/bin \
                            --with-headers=${SYSROOT_PREFIX}/usr/include \
-                           --enable-kernel=6.1.0 \
+                           --enable-kernel=6.6.0 \
                            --without-cvs \
                            --without-gd \
                            --disable-build-nscd \

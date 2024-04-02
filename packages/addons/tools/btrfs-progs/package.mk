@@ -2,17 +2,17 @@
 # Copyright (C) 2016-present Team LibreELEC (https://libreelec.tv)
 
 PKG_NAME="btrfs-progs"
-PKG_VERSION="6.1.3"
-PKG_SHA256="e6512ff305963bc68f11803fa759fecbead778a3a951aeb4f7f3f76dabb31db4"
+PKG_VERSION="6.7.1"
+PKG_SHA256="0a961c4ec5e81bbaf5cf9de2eddb9348f01b80b15e06f1037549217bd7502cbc"
 PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
-PKG_SITE="https://btrfs.wiki.kernel.org/index.php/Main_Page"
+PKG_SITE="https://btrfs.readthedocs.io/"
 PKG_URL="https://github.com/kdave/btrfs-progs/archive/v${PKG_VERSION}.tar.gz"
 PKG_DEPENDS_TARGET="toolchain util-linux zlib systemd lzo"
 PKG_SECTION="tools"
-PKG_SHORTDESC="tools for the btrfs filesystem"
-PKG_LONGDESC="tools for the btrfs filesystem"
+PKG_SHORTDESC="Tools for the btrfs filesystem"
+PKG_LONGDESC="Tools for the btrfs filesystem"
 PKG_TOOLCHAIN="configure"
 
 PKG_BUILD_FLAGS="-sysroot"
