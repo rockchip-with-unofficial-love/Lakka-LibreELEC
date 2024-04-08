@@ -389,6 +389,7 @@ make_target() {
 
   if [ "${LINUX}" = "L4T" ]; then
      export KCFLAGS+=" -Wno-stringop-truncation -Wno-error=stringop-overflow -Wno-maybe-uninitialized -Wno-address-of-packed-member -Wno-packed-not-aligned -Wno-array-bounds"
+  fi
 
   DTC_FLAGS=-@ kernel_make ${KERNEL_TARGET} ${KERNEL_MAKE_EXTRACMD} modules
 
