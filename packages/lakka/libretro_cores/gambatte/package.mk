@@ -1,5 +1,5 @@
 PKG_NAME="gambatte"
-PKG_VERSION="4c64b5285b88a08b8134f6c36177fdca56d46192"
+PKG_VERSION="cbda5ea9fd81d1be0220dfc690d05240655602e4"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/gambatte-libretro"
 PKG_URL="${PKG_SITE}.git"

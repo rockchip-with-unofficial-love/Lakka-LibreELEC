@@ -1,5 +1,5 @@
 PKG_NAME="jaxe"
-PKG_VERSION="e03ea87f37b33d89ce9c9bd71bd71fd0158cc68d"
+PKG_VERSION="bf5a788993c9bf048622bab5d3c876b15af3fcf6"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/kurtjd/jaxe"
 PKG_URL="${PKG_SITE}.git"

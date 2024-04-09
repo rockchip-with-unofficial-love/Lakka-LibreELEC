@@ -1,5 +1,5 @@
 PKG_NAME="pcsx_rearmed"
-PKG_VERSION="aced3eb3fcaa0fe13c44c4dd196cdab42555fd98"
+PKG_VERSION="4cc48a6b324ff1d025768bb5436279831e4bf319"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/pcsx_rearmed"
 PKG_URL="${PKG_SITE}.git"

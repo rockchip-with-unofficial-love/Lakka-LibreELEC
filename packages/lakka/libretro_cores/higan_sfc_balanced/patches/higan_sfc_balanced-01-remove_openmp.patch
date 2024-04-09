@@ -11,3 +11,15 @@ index 02493b6..228ba06 100644
    ifeq ($(binary),application)
      flags += -march=native
      link += -Wl,-export-dynamic
+diff --git a/nall/arithmetic/natural.hpp b/nall/arithmetic/natural.hpp
+index be77fc1..b0f0f08 100644
+--- a/nall/arithmetic/natural.hpp
++++ b/nall/arithmetic/natural.hpp
+@@ -8,6 +8,7 @@
+ //pick the larger of two types to prevent unnecessary data clamping
+ #define Cast (typename conditional<sizeof(Pair) >= sizeof(T), Pair, T>::type)
+ 
++#include <stdexcept>
+ namespace nall {
+ //namespace Arithmetic {
+ 
