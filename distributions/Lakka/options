@@ -448,6 +448,6 @@
   fi
 
 # temporary disabled due to build errors
-  for core in mame citra pcsx2 dolphin same_cdi ppsspp ; do
+  for core in citra pcsx2 dolphin same_cdi ppsspp ; do
     LIBRETRO_CORES="${LIBRETRO_CORES// ${core} /}"
   done
