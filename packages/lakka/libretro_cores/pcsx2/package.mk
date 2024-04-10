@@ -22,11 +22,11 @@ fi
 
 if [ "${VULKAN_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
-if [ "${DISPLAYSERVER}" = x11 ]; then
-  PKG_CMAKE_OPTS_TARGET="-DVULKAN_USE_X11=ON"
-elif [ "${DISPLAYSERVER}" = wl ]; then
-PKG_CMAKE_OPTS_TARGET="-DVULKAN_USE_WAYLAND=ON"
-fi
+  if [ "${DISPLAYSERVER}" = x11 ]; then
+    PKG_CMAKE_OPTS_TARGET="-DVULKAN_USE_X11=ON"
+  elif [ "${DISPLAYSERVER}" = wl ]; then
+    PKG_CMAKE_OPTS_TARGET="-DVULKAN_USE_WAYLAND=ON"
+  fi
 fi
 
 pre_make_target() {
@@ -39,4 +39,3 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
     cp -v pcsx2/pcsx2_libretro.so ${INSTALL}/usr/lib/libretro/
 }
-
