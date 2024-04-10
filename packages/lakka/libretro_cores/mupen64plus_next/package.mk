@@ -1,9 +1,10 @@
 PKG_NAME="mupen64plus_next"
-PKG_VERSION="5a63aadedc29655254d8fc7b4da3a325472e198b"
+PKG_VERSION="3f794eec4dc4af2f22ecce507f2da324381d3d92"
 PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro-nx"
 PKG_URL="${PKG_SITE}.git"
 PKG_GIT_CLONE_BRANCH="develop"
+GET_SKIP_SUBMODULE="yes"
 PKG_DEPENDS_TARGET="toolchain nasm:host"
 PKG_LONGDESC="mupen64plus_next + RSP-HLE + GLideN64 + libretro"
 
