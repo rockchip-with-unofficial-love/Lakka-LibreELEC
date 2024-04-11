@@ -20,7 +20,7 @@
   # NOOBS supported model versions
     NOOBS_SUPPORTED_MODELS='"Pi Model","Pi Compute Module","Pi Zero"'
 
-  # Specific to GPICase
+  # Specific to RPiZero-GPiCase
     KERNEL_MAKE_EXTRACMD="dtbs overlays/dpi24-gpi.dtbo overlays/pwm-audio-pi-zero-gpi.dtbo"
     UDEVIL="no"
     EXFAT="no"

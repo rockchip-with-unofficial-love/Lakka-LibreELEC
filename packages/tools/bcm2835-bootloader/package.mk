@@ -41,7 +41,7 @@ makeinstall_target() {
     find_file_path config/distroconfig.txt ${PKG_DIR}/files/distroconfig.txt && cp -PRv ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
     find_file_path config/distroconfig-composite.txt ${PKG_DIR}/files/distroconfig-composite.txt && cp -PRv ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
     find_file_path config/config.txt ${PKG_DIR}/files/config.txt && cp -PRv ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
-    if [ "${DEVICE}" = "GPICase" -o "${DEVICE}" = "Pi02GPi" ]; then
+    if [ "${DEVICE}" = "RPiZero-GPiCase" -o "${DEVICE}" = "RPiZero2-GPiCase" ]; then
       find_file_path config/distroconfig.gpi2w.txt ${PKG_DIR}/files/distroconfig.gpi2w.txt && cp -PRv ${FOUND_PATH} ${INSTALL}/usr/share/bootloader
       sed -i '/include distroconfig.txt/a #include distroconfig.gpi2w.txt' ${INSTALL}/usr/share/bootloader/config.txt
     fi

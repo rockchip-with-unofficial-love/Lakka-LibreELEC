@@ -13,14 +13,14 @@
         ;;
     esac
 
-# NOOBS supported hex versions (legacy)
+  # NOOBS supported hex versions (legacy)
     NOOBS_HEX="1040,1041,2082"
 
   # NOOBS supported model versions
     NOOBS_SUPPORTED_MODELS='"Pi 3"'
 
-  # Specific to GPICase
+  # Specific to RPiZero2-GPiCase2W
     CEC_FRAMEWORK_SUPPORT="no"
 
-# Kernel target
+  # Kernel target
     KERNEL_TARGET="Image"

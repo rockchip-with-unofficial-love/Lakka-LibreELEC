@@ -23,16 +23,16 @@ fi
 
 if [ "${PROJECT}" = "RPi" ]; then
   PKG_DEPENDS_TARGET+=" rpi_disable_hdmi_service disable_wifi_powersave lg-gpio"
-  if [ "${DEVICE}" != "GPICase" -a "${DEVICE}" != "Pi02GPi" ] ; then
+  if [ "${DEVICE}" != "RPiZero-GPiCase" -a "${DEVICE}" != "RPiZero2-GPiCase" ] ; then
     PKG_DEPENDS_TARGET+=" wii-u-gc-adapter wiringPi mk_arcade_joystick_rpi joycond"
   fi
   
-  if [ "${DEVICE}" = "GPICase" -o "${DEVICE}" = "Pi02GPi" -o "${DEVICE}" = "RPi4-GPICase2" -o "${DEVICE}" = "RPiZero2-GPiCASE2W" ]; then
+  if [ "${DEVICE}" = "RPiZero-GPiCase" -o "${DEVICE}" = "RPiZero2-GPiCase" -o "${DEVICE}" = "RPi4-GPiCase2" -o "${DEVICE}" = "RPiZero2-GPiCase2W" ]; then
     PKG_DEPENDS_TARGET+=" gpicase_safeshutdown"
   fi
 fi
 
-if [ "${DEVICE}" != "Switch" -a "${DEVICE}" != "GPICase" -a "${DEVICE}" != "Pi02GPi" -a "${DEVICE}" != "RPiZero2-GPiCASE2W" ]; then
+if [ "${DEVICE}" != "Switch" -a "${DEVICE}" != "RPiZero-GPiCase" -a "${DEVICE}" != "RPiZero2-GPiCase" -a "${DEVICE}" != "RPiZero2-GPiCase2W" ]; then
   PKG_DEPENDS_TARGET+=" xbox360_controllers_shutdown"
 fi
 
