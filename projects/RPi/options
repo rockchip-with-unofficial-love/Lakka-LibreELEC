@@ -5,6 +5,9 @@
   # Bootloader to use (bcm2835-bootloader)
     BOOTLOADER="bcm2835-bootloader"
 
+  # Kernel target
+    KERNEL_TARGET="zImage"
+
   # Additional kernel make parameters (for example to specify the u-boot loadaddress)
     KERNEL_MAKE_EXTRACMD="dtbs"
 
