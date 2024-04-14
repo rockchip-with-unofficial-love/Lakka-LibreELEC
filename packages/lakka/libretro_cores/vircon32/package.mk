@@ -1,5 +1,5 @@
 PKG_NAME="vircon32"
-PKG_VERSION="56c429aa001c9f76c7a96e656f82d7e60c34bc81"
+PKG_VERSION="293d0b2b0e3b996b991b7a667ec31a64d8865450"
 PKG_LICENSE="BSD"
 PKG_SITE="https://github.com/vircon32/vircon32-libretro"
 PKG_URL="${PKG_SITE}.git"
