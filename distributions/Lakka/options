@@ -445,6 +445,3 @@
   for core in citra pcsx2 dolphin same_cdi ppsspp ; do
     LIBRETRO_CORES="${LIBRETRO_CORES// ${core} /}"
   done
-
-echo $LIBRETRO_CORES | grep kronos
-exit 99

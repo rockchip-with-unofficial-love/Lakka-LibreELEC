@@ -1,6 +1,7 @@
 PKG_NAME="mame"
 PKG_VERSION="3aa1ff0d6c087ac35530572d09bc42a2591ff78f"
 PKG_LICENSE="MAME"
+PKG_ARCH="x86_64 aarch64 i386"
 PKG_SITE="https://github.com/libretro/mame"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain expat zlib flac sqlite"
