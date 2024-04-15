@@ -407,12 +407,6 @@
     EXCLUDE_LIBRETRO_CORES+=" lr_moonlight"
   fi
 
-  if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
-    #Core doesnt work with OPENGLES builds, as nanogui doesnt have support for that
-    #Mental note fix OPENGLES in moonlight core gui/renderer.
-    EXCLUDE_LIBRETRO_CORES+=" lr_moonlight"
-  fi
-
 # disable cores that are only for specific targets
   # fbalpha2012 and mame2000 only for RPi/RPiZero-GPiCase
   if [ "${PROJECT}" != "RPi" ]; then
@@ -451,3 +445,6 @@
   for core in citra pcsx2 dolphin same_cdi ppsspp ; do
     LIBRETRO_CORES="${LIBRETRO_CORES// ${core} /}"
   done
+
+echo $LIBRETRO_CORES | grep kronos
+exit 99
