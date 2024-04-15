@@ -10,7 +10,7 @@ if [ "${DISABLE_LIBRETRO_OPTIONAL}" != "yes" ]; then
 fi
 
 if [ "${DISABLE_LIBRETRO_CORES}" != "yes" ]; then
-  PKG_DEPENDS_TARGET+=" ${LIBRETRO_CORES}"
+  PKG_DEPENDS_TARGET+=" libretro_cores"
 fi
 
 if [ "${AVAHI_DAEMON}" = yes ]; then
