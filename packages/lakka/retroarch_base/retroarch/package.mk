@@ -269,15 +269,15 @@ makeinstall_target() {
     echo 'menu_widget_scale_factor = "2.25"' >> ${INSTALL}/etc/retroarch.cfg
   fi
 
-  # RPiZero-GPiCase
-  if [ "${PROJECT}" = "RPi" ] && [ "${DEVICE}" = "RPiZero-GPiCase" -o "${DEVICE}" = "RPiZero2-GPiCase" -o "${DEVICE}" = "RPiZero2-GPiCase2W" ]; then
+  # RPiZero/RPiZero2 + GPiCase (1st Gen Retroflag GPiCase)
+  if [ "${DEVICE}" = "RPiZero-GPiCase" -o "${DEVICE}" = "RPiZero2-GPiCase" ]; then
     sed -i -e 's|^input_menu_toggle_gamepad_combo =.*|input_menu_toggle_gamepad_combo = "4"|' ${INSTALL}/etc/retroarch.cfg
     sed -i -e 's|^menu_driver =.*|menu_driver = "rgui"|' ${INSTALL}/etc/retroarch.cfg
-    echo 'audio_device = "default:CARD=Headphones"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'menu_timedate_enable = "false"' >> ${INSTALL}/etc/retroarch.cfg
-    echo 'menu_enable_widgets = "false"' >> ${INSTALL}/etc/retroarch.cfg
     echo 'aspect_ratio_index = "21"' >> ${INSTALL}/etc/retroarch.cfg
+    echo 'audio_device = "default:CARD=Headphones"' >> ${INSTALL}/etc/retroarch.cfg
     echo 'audio_out_rate = "44100"' >> ${INSTALL}/etc/retroarch.cfg
+    echo 'menu_enable_widgets = "false"' >> ${INSTALL}/etc/retroarch.cfg
+    echo 'menu_timedate_enable = "false"' >> ${INSTALL}/etc/retroarch.cfg
     echo 'video_font_size = "16"' >> ${INSTALL}/etc/retroarch.cfg
 
     if [ "${DEVICE}" = "RPiZero-GPiCase" ]; then
@@ -285,12 +285,23 @@ makeinstall_target() {
       echo 'video_scale_integer = "true"' >> ${INSTALL}/etc/retroarch.cfg
     fi
 
-    if [ "${DEVICE}" = "RPiZero2-GPiCase" -o "${DEVICE}" = "RPiZero2-GPiCase2W" ]; then
+    if [ "${DEVICE}" = "RPiZero2-GPiCase" ]; then
       echo 'input_player1_analog_dpad_mode = "3"' >> $INSTALL/etc/retroarch.cfg
     fi
   fi
-  if [ "${PROJECT}" = "RPi" ] && [ "${DEVICE}" = "RPi4-GPiCase2" ]; then
+
+  # RPi Compute Module 4 + GPiCase2 (2nd Gen Retroflag GPiCase)
+  if [ "${DEVICE}" = "RPi4-GPiCase2" ]; then
     echo 'audio_device = "default:CARD=Device"' >> ${INSTALL}/etc/retroarch.cfg
+    echo 'audio_out_rate = "44100"' >> ${INSTALL}/etc/retroarch.cfg
+    echo 'xmb_layout = "2"' >> ${INSTALL}/etc/retroarch.cfg
+  fi
+
+  # RPiZero2 + GPiCase2W (3rd Gen Retroflag GPiCase)
+  if [ "${DEVICE}" = "RPiZero2-GPiCaseW" ]; then
+    echo 'audio_device = "default:CARD=Headphones"' >> ${INSTALL}/etc/retroarch.cfg
+    echo 'audio_out_rate = "44100"' >> ${INSTALL}/etc/retroarch.cfg
+    echo 'xmb_layout = "2"' >> ${INSTALL}/etc/retroarch.cfg
   fi
 
   # PiBoy DMG / RetroDreamer
