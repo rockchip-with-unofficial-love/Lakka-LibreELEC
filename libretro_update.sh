@@ -50,11 +50,11 @@ case $1 in
       esac
     fi
     # Get list of all libretro and retroarch packages
-    for p in $(cd $LR_PKG_PATH && ls) ; do
-      PACKAGES_ALL+=" $p "
+    for p in $(cd $LR_PKG_PATH && ls -d */) ; do
+      PACKAGES_ALL+=" ${p//\//} "
     done
-    for p in $(cd $RA_PKG_PATH && ls) ; do
-      PACKAGES_ALL+=" $p "
+    for p in $(cd $RA_PKG_PATH && ls -d */) ; do
+      PACKAGES_ALL+=" ${p//\//} "
     done
     ;;
   -u | --used )
