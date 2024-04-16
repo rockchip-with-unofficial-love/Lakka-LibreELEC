@@ -4,7 +4,7 @@ PKG_LICENSE="GPLv2"
 PKG_SITE="https://github.com/libretro/mupen64plus-libretro-nx"
 PKG_URL="${PKG_SITE}.git"
 PKG_GIT_CLONE_BRANCH="develop"
-GET_SKIP_SUBMODULE="yes"
+PKG_GIT_SKIP_SUBMODULE="yes"
 PKG_DEPENDS_TARGET="toolchain nasm:host"
 PKG_LONGDESC="mupen64plus_next + RSP-HLE + GLideN64 + libretro"
 
