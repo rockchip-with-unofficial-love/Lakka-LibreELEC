@@ -38,6 +38,7 @@ function do_mkimage() {
     PROJECT="${PROJECT}" \
     DEVICE="${DEVICE}" \
     DISTRO="${DISTRO}" \
+    DISTRO_DIR="${DISTRO_DIR}" \
     TARGET_IMG="${TARGET_IMG}" \
     BUILD_NAME="${IMAGE_NAME}" \
     IMAGE_NAME="${1:-${IMAGE_NAME}}" \
