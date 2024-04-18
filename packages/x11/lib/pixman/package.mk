@@ -40,6 +40,11 @@ PKG_MESON_OPTS_TARGET="-Dopenmp=disabled \
                        -Dtests=disabled \
                        -Ddemos=disabled"
 
+if [ "${ARCH}" = "i386" ]; then
+  TARGET_ARCH="x86"
+  TARGET_SUBARCH="x86"
+fi
+
 post_makeinstall_target() {
   cp ${SYSROOT_PREFIX}/usr/lib/pkgconfig/pixman-1.pc \
      ${SYSROOT_PREFIX}/usr/lib/pkgconfig/pixman.pc
