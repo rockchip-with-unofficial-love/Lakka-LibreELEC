@@ -1,5 +1,5 @@
 PKG_NAME="mgba"
-PKG_VERSION="72202544bb0dcc444a4ef6ff5f52cf22c34f1da4"
+PKG_VERSION="5d92c3ca0a2b58db253b4296cdcd220335316040"
 PKG_LICENSE="MPLv2.0"
 PKG_SITE="https://github.com/mgba-emu/mgba"
 PKG_URL="${PKG_SITE}.git"
