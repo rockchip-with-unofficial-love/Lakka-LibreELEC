@@ -2,10 +2,10 @@
 # Copyright (C) 2018-present Team LibreELEC (https://libreelec.tv)
 _repo_sha256() {
   if [ ${1} = "0" ]; then # Check SHA256 against board options
-    [ -f ${SOURCES}/linux/linux-$DEVICE.repo_sha256 ] && rm ${SOURCES}/linux/linux-$DEVICE.repo_sha256
-    tar -xf ${SOURCES}/linux/linux-$DEVICE.tar.gz ./.REPO_SHA256
-    mv .REPO_SHA256 ${SOURCES}/linux/linux-$DEVICE.repo_sha256
-    cat ${SOURCES}/linux/linux-$DEVICE.repo_sha256 | while read line
+    [ -f ${SOURCES}/linux/linux-${DEVICE}-${L4T_KERNEL_VERSION}.repo_sha256 ] && rm ${SOURCES}/linux/linux-${DEVICE}-${L4T_KERNEL_VERSION}.repo_sha256
+    tar -xf ${SOURCES}/linux/linux-${DEVICE}-${L4T_KERNEL_VERSION}.tar.gz ./.REPO_SHA256
+    mv .REPO_SHA256 ${SOURCES}/linux/linux-${DEVICE}-${L4T_KERNEL_VERSION}.repo_sha256
+    cat ${SOURCES}/linux/linux-${DEVICE}-${L4T_KERNEL_VERSION}.repo_sha256 | while read line
     do
       case "${line%=*}" in
         L4T_KERNEL_4_9_REPO_SHA256)
@@ -45,7 +45,7 @@ _repo_sha256() {
           ;;
        L4T_DEVICE_T210_JETSON_REPO_SHA256)
           if [ ! "${L4T_DEVICE_T210_JETSON_REPO_SHA256}" = "${line#*=}" ]; then
-            return 1            
+            return 1
           fi
           ;;
        L4T_DEVICE_T210_BATUU_REPO_SHA256)
@@ -72,7 +72,7 @@ _repo_sha256() {
           if [ ! "${L4T_DEVICE_T18X_QUILL_REPO_SHA256}" = "${line#*=}" ]; then
             return 1
           fi
-          ;;     
+          ;;
       L4T_DEVICE_COMMON_T19X_REPO_SHA256)
           if [ ! "${L4T_DEVICE_COMMON_T19X_REPO_SHA256}" = "${line#*=}" ]; then
             return 1
@@ -98,7 +98,7 @@ _repo_sha256() {
             return 1
           fi
           ;;
-      esac    
+      esac
     done
     return 0
    elif [ ${1} = "1" ]; then # create .REPO_SHA256 file and add it to kernel sources tarball
@@ -120,12 +120,12 @@ _repo_sha256() {
       fi
       echo "${variable}=${!variable}" >> .REPO_SHA256
     done
-  fi 
+  fi
 }
 
 _get_file_already_downloaded() {
-  if [ -f ${SOURCES}/linux/linux-$DEVICE.tar.gz ]; then 
-    if tar -tf ${SOURCES}/linux/linux-$DEVICE.tar.gz ./.REPO_SHA256 >/dev/null 2>&1; then
+  if [ -f ${SOURCES}/linux/linux-${DEVICE}-${L4T_KERNEL_VERSION}.tar.gz ]; then
+    if tar -tf ${SOURCES}/linux/linux-${DEVICE}-${L4T_KERNEL_VERSION}.tar.gz ./.REPO_SHA256 >/dev/null 2>&1; then
       _repo_sha256 0 && return 0
       return 1
     else
@@ -173,7 +173,7 @@ check_custom_l4t_repos() {
        L4T_KERNEL_NVIDIA_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
        L4T_KERNEL_NVIDIA_SOURCE_TYPE=2
   fi
-  
+
   if [ ! $L4T_KERNEL_NVGPU_REPO = "" ] || [ ! $L4T_KERNEL_NVGPU_URL = "" ]; then
      if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
        export CUSTOM_PATCH=1
@@ -192,7 +192,7 @@ check_custom_l4t_repos() {
        L4T_KERNEL_NVGPU_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
        L4T_KERNEL_NVGPU_SOURCE_TYPE=2
   fi
-  
+
   if [ ! $L4T_DEVICE_COMMON_TEGRA_REPO = "" ] || [ ! $L4T_DEVICE_COMMON_TEGRA_URL = "" ]; then
      if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
        export CUSTOM_PATCH=1
@@ -211,7 +211,7 @@ check_custom_l4t_repos() {
        L4T_DEVICE_COMMON_TEGRA_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
        L4T_DEVICE_COMMON_TEGRA_SOURCE_TYPE=1
   fi
-  
+
   if [ $L4T_DEVICE_TYPE = "t210" ]; then
     if [ ! $L4T_DEVICE_COMMON_T210_REPO = "" ] || [ ! $L4T_DEVICE_COMMON_T210_URL = "" ]; then
        if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
@@ -270,7 +270,7 @@ check_custom_l4t_repos() {
       L4T_DEVICE_COMMON_T19X_SOURCE_TYPE=1
     fi
   fi
-  
+
   if [ $L4T_DEVICE_TYPE = "t210" ]; then
     if [ ! $L4T_DEVICE_T210_REPO = "" ] || [ ! $L4T_DEVICE_T210_URL = "" ]; then
        if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
@@ -348,7 +348,7 @@ check_custom_l4t_repos() {
        L4T_DEVICE_TEGRA_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
        L4T_DEVICE_TEGRA_SOURCE_TYPE=1
   fi
-     
+
   if [ $L4T_DEVICE_TYPE = "t210" ]; then
     if [ ! $L4T_DEVICE_T210_JETSON_REPO = "" ] || [ ! $L4T_DEVICE_T210_JETSON_URL = "" ]; then
        if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
@@ -442,7 +442,7 @@ check_custom_l4t_repos() {
       L4T_DEVICE_T19X_GALEN_REPO_BRANCH=tegra-l4t-r$GENERIC_L4T_VERSION
       L4T_DEVICE_T19X_GALEN_SOURCE_TYPE=1
     fi
-    
+
     if [ ! $L4T_DEVICE_T19X_JAKKU_REPO = "" ] || [ ! $L4T_DEVICE_T19X_JAKKU_URL = "" ]; then
       if [ ! $CUSTOM_PATCH = 1 ] && [ ! $FORCE_GENERIC_L4T_PATCHES = 1 ]; then
         export CUSTOM_PATCH=1
@@ -462,7 +462,7 @@ check_custom_l4t_repos() {
       L4T_DEVICE_T19X_JAKKU_SOURCE_TYPE=1
     fi
   fi
-  
+
   #For devices that have custom dts tree, like nintendo switch
   if [ ! $L4T_DEVICE_CUSTOM_REPO = "" ] || [ ! $L4T_DEVICE_CUSTOM_URL = "" ]; then
      echo "Including Custom Device Repo"
@@ -487,7 +487,7 @@ download_sources_and_combine() {
     rm -rf combined_tree downloads
     mkdir combined_tree
     mkdir downloads && cd downloads
-    
+
     #Main kernel
     if [ ! $L4T_KERNEL_4_9_SOURCE_TYPE = 0 ]; then
       if [ $L4T_KERNEL_4_9_REPO_BRANCH = "" ] || [ $L4T_KERNEL_4_9_SOURCE_TYPE = 2 ]; then
@@ -511,9 +511,9 @@ download_sources_and_combine() {
     fi
     mv $(echo $L4T_KERNEL_4_9_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/
     rm -rf $(echo $L4T_KERNEL_4_9_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
-       
+
     mkdir ../combined_tree/nvidia/
-        
+
     if [ ! $L4T_KERNEL_NVIDIA_SOURCE_TYPE = 0 ]; then
       if [ $L4T_KERNEL_NVIDIA_REPO_BRANCH = "" ]  || [ $L4T_KERNEL_NVIDIA_SOURCE_TYPE = 2 ]; then
         git clone $L4T_KERNEL_NVIDIA_SOURCE
@@ -538,7 +538,7 @@ download_sources_and_combine() {
     rm -rf $(echo $L4T_KERNEL_NVIDIA_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
 
     mkdir ../combined_tree/nvidia/nvgpu
-    
+
     if [ ! $L4T_KERNEL_NVIDIA_SOURCE_TYPE = 0 ]; then
       if [ $L4T_KERNEL_NVGPU_REPO_BRANCH = "" ] || [ $L4T_KERNEL_NVGPU_SOURCE_TYPE = 2 ]; then
         git clone $L4T_KERNEL_NVGPU_SOURCE
@@ -607,7 +607,7 @@ download_sources_and_combine() {
         #Needs More Work
         #wget $L4T_DEVICE_COMMON_T18X_SOURCE
         :
-      fi    
+      fi
       mv $(echo $L4T_DEVICE_COMMON_T18X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/* ../combined_tree/nvidia/platform/t18x/common/
       rm -rf $(echo $L4T_DEVICE_COMMON_T18X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
     elif [ $L4T_DEVICE_TYPE = "t19x" ]; then
@@ -730,7 +730,7 @@ download_sources_and_combine() {
       mkdir -p ../combined_tree/nvidia/soc/t19x/kernel-dts
       mv $(echo $L4T_DEVICE_T19X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')/kernel-dts/* ../combined_tree/nvidia/soc/t19x/kernel-dts/
       rm -rf $(echo $L4T_DEVICE_T18X_SOURCE | sed 's/.*\///' | gawk '{print substr($0,1,length()-4)}')
-    fi    
+    fi
 
     if [ ! $L4T_DEVICE_TEGRA_SOURCE_TYPE = 0 ]; then
       if [ $L4T_DEVICE_TEGRA_REPO_BRANCH = "" ] || [ $L4T_DEVICE_TEGRA_SOURCE_TYPE = 2 ]; then
@@ -924,8 +924,8 @@ download_sources_and_combine() {
     cd ../combined_tree
     #Apply patches minimal patches to combine/fix gcc issues.
     #Any other patches should be applied by the linux package.
-    if [ ! $CUSTOM_PATCH = 1 ]; then 
-      PATCH_PATH="${PROJECT_DIR}/${PROJECT}/patches/l4t-kernel-sources" Might need custom patches for each version. 
+    if [ ! $CUSTOM_PATCH = 1 ]; then
+      PATCH_PATH="${PROJECT_DIR}/${PROJECT}/patches/l4t-kernel-sources" Might need custom patches for each version.
     else
       PATCH_PATH="${PROJECT_DIR}/${PROJECT}/devices/${DEVICE}/patches/l4t-kernel-sources"
     fi
@@ -933,7 +933,7 @@ download_sources_and_combine() {
     patch -p1 < $PATCH_PATH/01-unify_l4t_sources.patch
     patch -p1 < $PATCH_PATH/02-nvidia_drivers_actmon_add__init_annotation_to_tegra_actmon_register.patch
     patch -p1 < $PATCH_PATH/03_irq_gic_drop__init_annotation_from_gic_init_fiq.patch
-     
+
     #Apply patch to fix glibc cross compiling.
     patch -p1 < $PATCH_PATH/04-Revert-arm64-32bit-sigcontext-definition-to-uapi-signcontext.h.patch
 
@@ -942,8 +942,8 @@ download_sources_and_combine() {
 
     #Create and place tarball for linux package
     mkdir -p ${SOURCES}/linux
-    tar -cf ${SOURCES}/linux/linux-$DEVICE.tar.gz .
-   
+    tar -cf ${SOURCES}/linux/linux-${DEVICE}-${L4T_KERNEL_VERSION}.tar.gz .
+
     #Cleanup build tree, since we dont need to waste space with these files now.
     cd ..
     rm -rf downloads combined_tree

@@ -29,7 +29,11 @@ case "${LINUX}" in
     PKG_SOURCE_NAME="linux-${LINUX}-${PKG_VERSION}.tar.gz"
     ;;
   L4T)
-    PKG_VERSION=${DEVICE}
+    if [ -z "${L4T_KERNEL_VERSION}" ]; then
+      echo "${PROJECT}: ${KERNEL} - you must set L4T_KERNEL_VERSION in projects/${PROJECT}/device/${DEVICE}/options"
+      exit 1
+    fi
+    PKG_VERSION=${DEVICE}-${L4T_KERNEL_VERSION}
     PKG_URL="l4t-kernel-sources"
     GET_HANDLER_SUPPORT="l4t-kernel-sources"
     PKG_PATCH_DIRS="${PROJECT} ${PROJECT}/${DEVICE}"

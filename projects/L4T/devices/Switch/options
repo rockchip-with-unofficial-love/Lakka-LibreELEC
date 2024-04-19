@@ -31,6 +31,11 @@ L4T_DEVICE_TYPE="t210"
 
 L4T_DEVICE_CUSTOM_BOARD_NAME="nx"
 
+# serial number of the kernel
+# bump this in case any of the below change to build new kernel archive
+# set it to year-month-date of the update
+L4T_KERNEL_VERSION="2022-12-24"
+
 L4T_KERNEL_4_9_REPO="https://gitlab.com/switchroot/kernel/l4t-kernel-4.9.git"
 L4T_KERNEL_4_9_REPO_BRANCH="linux-5.0.0-dev"
 L4T_KERNEL_4_9_REPO_SHA256="68e1648524c7deacc9e7346113aa2f60edadc7f2"
