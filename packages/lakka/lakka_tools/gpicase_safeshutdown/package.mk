@@ -6,7 +6,7 @@ if [ "${DEVICE}" != "RPi4-GPiCase2" ]; then
   PKG_DEPENDS_TARGET="Python3 gpiozero colorzero"
 else
   # for RPi4-GPiCase2
-  PKG_DEPENDS_TARGET="Python3 RPi.GPIO"
+  PKG_DEPENDS_TARGET="Python3 lg-gpio"
 fi
 PKG_SECTION="system"
 PKG_LONGDESC="GPICase safe shutdown script."
