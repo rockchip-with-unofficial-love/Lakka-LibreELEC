@@ -24,7 +24,6 @@ show_distro_config() {
       exit 1
     fi
     . ${ROOT}/packages/lakka/libretro_cores/package.mk
-    echo LIBRETRO_CORES=${LIBRETRO_CORES}
     declare -i count=0
     for pkg in ${LIBRETRO_CORES} ; do count+=1 ; done
     config_message+="\n  Including ${count} libretro core(s)"
