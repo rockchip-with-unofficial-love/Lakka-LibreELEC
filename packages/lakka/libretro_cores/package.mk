@@ -266,7 +266,7 @@ if [ -n "${CUSTOM_LIBRETRO_CORES}" ]; then
 fi
 
 # temporary disabled due to build errors for all targets
-for core in citra pcsx2 dolphin same_cdi ppsspp ; do
+for core in citra pcsx2 dolphin same_cdi ; do
   LIBRETRO_CORES="${LIBRETRO_CORES// ${core} /}"
 done
 
