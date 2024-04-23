@@ -35,10 +35,6 @@ case "${PROJECT}" in
     ;;
 esac
 
-if [ "${DISTRO}" = "Lakka" ]; then
-  PKG_DEPENDS_TARGET+=" libx264 lame rtmpdump"
-fi
-
 post_unpack() {
   # Fix FFmpeg version
   if [ "${PROJECT}" = "Amlogic" ]; then
