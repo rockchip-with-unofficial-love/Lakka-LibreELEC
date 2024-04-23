@@ -1,4 +1,4 @@
-PKG_NAME="mgba"
+PKG_NAME="mgba_upstream"
 PKG_VERSION="61791c91cb41eaafd4a710f8c6229840e5a343b4"
 PKG_LICENSE="MPLv2.0"
 PKG_SITE="https://github.com/mgba-emu/mgba"
@@ -33,5 +33,5 @@ fi
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
-    cp -v mgba_libretro.so ${INSTALL}/usr/lib/libretro/
+    cp -v mgba_libretro.so ${INSTALL}/usr/lib/libretro/mgba_upstream_libretro.so
 }
