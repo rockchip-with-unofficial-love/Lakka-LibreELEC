@@ -88,6 +88,7 @@ LIBRETRO_CORES="\
                 mesen \
                 mesen_s \
                 mgba \
+                mgba_upstream \
                 mojozork \
                 mrboom \
                 mu \
