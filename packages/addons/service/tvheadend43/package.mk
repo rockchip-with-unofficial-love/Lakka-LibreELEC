@@ -5,7 +5,7 @@ PKG_NAME="tvheadend43"
 PKG_VERSION="3dcb7ecf36666dcb43211a84141b1b645c9ca757"
 PKG_SHA256="c7c8414bca5304276cc8f07aa291e36b50e1190d441f2af2ce256631b7c033c2"
 PKG_VERSION_NUMBER="4.3-2180"
-PKG_REV="1"
+PKG_REV="0"
 PKG_ARCH="any"
 PKG_LICENSE="GPL"
 PKG_SITE="http://www.tvheadend.org"
@@ -19,7 +19,7 @@ PKG_LONGDESC="Tvheadend (${PKG_VERSION_NUMBER}): is a TV streaming server for Li
 PKG_BUILD_FLAGS="-sysroot"
 
 PKG_IS_ADDON="yes"
-PKG_ADDON_NAME="Tvheadend Server 4.3 (Alpha)"
+PKG_ADDON_NAME="Tvheadend Server 4.3"
 PKG_ADDON_TYPE="xbmc.service"
 
 # basic transcoding options
