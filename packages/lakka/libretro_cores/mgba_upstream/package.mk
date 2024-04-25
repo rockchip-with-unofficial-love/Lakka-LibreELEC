@@ -13,8 +13,6 @@ PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
                        -DBUILD_QT=OFF \
                        -DBUILD_SDL=OFF \
                        -DUSE_DISCORD_RPC=OFF \
-                       -DUSE_GDB_STUB=OFF \
-                       -DUSE_DEBUGGERS=OFF \
                        -DUSE_EDITLINE=OFF \
                        -DUSE_EPOXY=OFF"
 
@@ -27,9 +25,15 @@ fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  PKG_CMAKE_OPTS_TARGET+=" -DUSING_GLES2=ON"
-fi
 
+  get_graphicdrivers
+
+  if listcontains "${GRAPHIC_DRIVERS}" "(panfrost|vc4)" && ! listcontains "${MALI_FAMILY}" "(t720)"; then
+    PKG_CMAKE_OPTS_TARGET+=" -DBUILD_GLES3=ON -DBUILD_GLES2=OFF"
+  else
+    PKG_CMAKE_OPTS_TARGET+=" -DBUILD_GLES3=OFF -DBUILD_GLES2=ON"
+  fi
+fi
 
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
