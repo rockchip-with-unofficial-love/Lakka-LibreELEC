@@ -10,7 +10,7 @@ makeinstall_target() {
   make -C ${PKG_BUILD} install INSTALLDIR="${INSTALL}/usr/lib/libretro"
 
   # ScummVM package provides own core info file
-  rm -f ${INSTALL}/usr/lib/libretro/scummvm_libretro.info
+  rm -v ${INSTALL}/usr/lib/libretro/scummvm_libretro.info
 
   # mGBA core built from upstream repo - create a duplicate .info file
   cp -v ${INSTALL}/usr/lib/libretro/mgba_libretro.info ${INSTALL}/usr/lib/libretro/mgba_upstream_libretro.info

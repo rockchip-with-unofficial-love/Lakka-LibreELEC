@@ -5,14 +5,13 @@ PKG_SITE="https://github.com/libretro/libretro-fsuae"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain libmpeg2 openal-soft glib"
 PKG_LONGDESC="FS-UAE amiga emulator libretro core."
-#PKG_BUILD_FLAGS="-lto"
 PKG_TOOLCHAIN="configure"
 
 PKG_IS_ADDON="no"
 PKG_AUTORECONF="yes"
 
-if [ "$PROJECT" = "RPi" ] ; then
-    PKG_CONFIGURE_OPTS_TARGET="--disable-jit --enable-neon"
+if [ "${PROJECT}" = "RPi" ] ; then
+  PKG_CONFIGURE_OPTS_TARGET="--disable-jit --enable-neon"
 fi
 
 pre_configure_target() {

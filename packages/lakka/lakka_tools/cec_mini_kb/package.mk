@@ -11,7 +11,7 @@ PKG_LONGDESC="Small utility to use a CEC remote controller as a mini keyboard"
 PKG_TOOLCHAIN="make"
 
 makeinstall_target() {
-  mkdir -p $INSTALL/usr/bin/
+  mkdir -p ${INSTALL}/usr/bin/
   cp -v cec-mini-kb ${INSTALL}/usr/bin/
 }
 

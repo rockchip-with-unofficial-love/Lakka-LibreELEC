@@ -286,7 +286,7 @@ makeinstall_target() {
     fi
 
     if [ "${DEVICE}" = "RPiZero2-GPiCase" ]; then
-      echo 'input_player1_analog_dpad_mode = "3"' >> $INSTALL/etc/retroarch.cfg
+      echo 'input_player1_analog_dpad_mode = "3"' >> ${INSTALL}/etc/retroarch.cfg
     fi
   fi
 

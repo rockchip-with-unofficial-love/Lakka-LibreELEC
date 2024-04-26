@@ -17,6 +17,6 @@ makeinstall_target() {
   mkdir -p ${INSTALL}/usr/bin
     cp -v ${PKG_BUILD}/build/bin/* ${INSTALL}/usr/bin
 
-  mkdir -p $INSTALL/usr/lib
+  mkdir -p ${INSTALL}/usr/lib
     cp -v ${PKG_BUILD}/build/lib/* ${INSTALL}/usr/lib
 }

@@ -7,7 +7,6 @@ PKG_DEPENDS_TARGET="toolchain"
 PKG_PRIORITY="optional"
 PKG_SECTION="libretro"
 PKG_LONGDESC="Non-shallow fork of PPSSPP for libretro exclusively."
-#PKG_BUILD_FLAGS="-lto"
 
 pre_make_target() {
   PKG_MAKE_OPTS_TARGET="-C ${PKG_BUILD}/libretro"
