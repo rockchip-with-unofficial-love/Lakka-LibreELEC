@@ -198,6 +198,7 @@ for f in $ALL_FILES ; do
   PKG_NAME=`cat $f | sed -En "s/^PKG_NAME=\"(.*)\"/\1/p"`
   PKG_GIT_CLONE_BRANCH=`cat $f | sed -En "s/^PKG_GIT_CLONE_BRANCH=\"(.*)\"/\1/p"`
   PKG_LR_UPDATE_TAG=`cat $f | sed -En "s/^PKG_LR_UPDATE_TAG=\"(.*)\"/\1/p"`
+  PKG_LR_UPDATE_TAG_MASK=`cat $f | sed -En "s/^PKG_LR_UPDATE_TAG_MASK=\"(.*)\"/\1/p"`
   if [ -z "$PKG_VERSION" ] || [ -z "$PKG_SITE" ] ; then
     echo "$f: does not have PKG_VERSION or PKG_SITE"
     echo "PKG_VERSION: $PKG_VERSION"
@@ -217,7 +218,11 @@ for f in $ALL_FILES ; do
     GIT_HEAD="HEAD"
   fi
   if [ "$PKG_LR_UPDATE_TAG" = "yes" ]; then
-    TAG=`git ls-remote --tags $PKG_SITE 2>/dev/null | cut --delimiter='/' --fields=3 | cut --delimiter='^' --fields=1 | sort --version-sort | tail --lines=1`
+    if [ -n "${PKG_LR_UPDATE_TAG_MASK}" ]; then
+      TAG=`git ls-remote --tags $PKG_SITE "${PKG_LR_UPDATE_TAG_MASK}" 2>/dev/null | cut --delimiter='/' --fields=3 | cut --delimiter='^' --fields=1 | sort --version-sort | tail --lines=1`
+    else
+      TAG=`git ls-remote --tags $PKG_SITE 2>/dev/null | cut --delimiter='/' --fields=3 | cut --delimiter='^' --fields=1 | sort --version-sort | tail --lines=1`
+    fi
     UPS_VERSION=`git ls-remote --tags $PKG_SITE 2>/dev/null | grep refs/tags/$TAG | tail --lines=1 | awk '{ print $1; }'`
     UPDATE_INFO="(latest tag - $TAG)"
   else
