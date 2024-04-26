@@ -1,11 +1,13 @@
 PKG_NAME="mgba_upstream"
-PKG_VERSION="61791c91cb41eaafd4a710f8c6229840e5a343b4"
+PKG_VERSION="1c61b54208ca6266129d0f2394c04bd8c44f98c5"
 PKG_LICENSE="MPLv2.0"
 PKG_SITE="https://github.com/mgba-emu/mgba"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain libzip libpng zlib"
 PKG_LONGDESC="mGBA Game Boy Advance Emulator"
 PKG_TOOLCHAIN="cmake"
+PKG_LR_UPDATE_TAG="yes"
+PKG_LR_UPDATE_TAG_MASK="*.*.*"
 
 PKG_CMAKE_OPTS_TARGET="-DCMAKE_BUILD_TYPE=Release \
                        -DBUILD_LIBRETRO=ON \
