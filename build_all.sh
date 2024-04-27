@@ -149,10 +149,10 @@ do
 	# set status file
 	statusfile="build.${distro}-${target_name}*/.threads/status"
 
+	echo "Starting build of ${target_name}"
 	if [ "${DASHBOARD_MODE}" != "yes" ]
 	then
 		# show logs during build (non-dashboard build)
-		echo "Starting build of ${target_name}"
 		make ${out} OFFICIAL=yes PROJECT=${project} DEVICE=${device} ARCH=${arch} MTIMMEDIATE=${qf} ${tc}
 		ret_nondb=${?}
 		if [ ${ret_nondb} -gt 0 -a "${BAILOUT_FAILED}" != "no" ]
