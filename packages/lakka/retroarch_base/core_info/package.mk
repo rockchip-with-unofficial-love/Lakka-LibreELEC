@@ -13,7 +13,8 @@ makeinstall_target() {
   rm -v ${INSTALL}/usr/lib/libretro/scummvm_libretro.info
 
   # mGBA core built from upstream repo - create a duplicate .info file
-  cp -v ${INSTALL}/usr/lib/libretro/mgba_libretro.info ${INSTALL}/usr/lib/libretro/mgba_upstream_libretro.info
-  sed -i ${INSTALL}/usr/lib/libretro/mgba_upstream_libretro.info \
-      -e "s|mGBA|mGBA-upstream|g"
+  cp -v ${INSTALL}/usr/lib/libretro/mgba_libretro.info \
+        ${INSTALL}/usr/lib/libretro/mgba_fork_libretro.info
+  sed -i ${INSTALL}/usr/lib/libretro/mgba_fork_libretro.info \
+      -e "s|mGBA|mGBA-fork|g"
 }
