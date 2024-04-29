@@ -11,6 +11,9 @@ case ${TARGET_ARCH} in
         ;;
 esac
 
+# remove xpadneo
+ADDITIONAL_PACKAGES="${ADDITIONAL_PACKAGES//xpadneo/}"
+
 ADDITIONAL_PACKAGES+=" switch-joycon-bluetooth-dock-configs switch-alsa-ucm-configs libcec v4l-utils usb-gadget-scripts switch-cpu-profile switch-gpu-profile" 
 
 if [ "${DISTRO}" = "Lakka" ]; then
