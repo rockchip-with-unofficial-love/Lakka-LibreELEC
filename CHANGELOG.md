@@ -1,4 +1,4 @@
-# Next
+# v6.0
 * Update buildsystem to LibreELEC 12.0
 * Update Mesa to [24.0.5](https://docs.mesa3d.org/relnotes/24.0.5.html)
 * Update mainline kernel to 6.6.28
