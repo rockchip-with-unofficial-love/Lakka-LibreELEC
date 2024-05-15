@@ -20,6 +20,7 @@ END
 # setup network
 SSID=""
 PSK=""
+COUNTRY=""
 
 [ -f ${wifi_cfg} ] && . ${wifi_cfg}
 
@@ -40,6 +41,10 @@ sleep 5
 echo "${PSK}"
 ) | connmanctl
 END
+fi
+
+if [ -n "${COUNTRY}" ]; then
+  iw reg set ${COUNTRY}
 fi
 
 # apply RetroArch overrides to default configuration
