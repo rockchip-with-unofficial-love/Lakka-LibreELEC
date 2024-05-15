@@ -372,9 +372,19 @@ EOF
   mcopy "${LE_TMP}/wifi-config.txt" ::/wifi-config.txt >"${SAVE_ERROR}" 2>&1 || show_error
 
   cat << EOF > "${LE_TMP}/retroarch-overrides.txt"
-# Add overrides for RetroArch default configuration in following form:
+# Add overrides for RetroArch default configuration in
+# following form:
+#
 # key_name = "value"
 # other_key = 42
+#
+# These will be then added to / replace existing ones in
+# default retroarch.cfg
+#
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# !!!  Overrides / settings from this file are used  !!!
+# !!! only during the very first boot after flashing !!!
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 EOF
   mcopy "${LE_TMP}/retroarch-overrides.txt" ::/retroarch-overrides.txt >"${SAVE_ERROR}" 2>&1 || show_error
 fi
