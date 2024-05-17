@@ -37,7 +37,7 @@ case "${LINUX}" in
     PKG_URL="l4t-kernel-sources"
     GET_HANDLER_SUPPORT="l4t-kernel-sources"
     PKG_PATCH_DIRS="${PROJECT} ${PROJECT}/${DEVICE}"
-    PKG_SOURCE_NAME="linux-$DEVICE.tar.gz"
+    PKG_SOURCE_NAME="${PKG_NAME}-${PKG_VERSION}.tar.gz"
     #Need to find a better way to do this for l4t platforms!
     PKG_SHA256=$L4T_COMBINED_KERNEL_SHA256
     ;;
