@@ -1,0 +1,35 @@
+diff --git a/retrodep/parser.c b/retrodep/parser.c
+index 5e896d7..29f4afa 100644
+--- a/retrodep/parser.c
++++ b/retrodep/parser.c
+@@ -196,7 +196,7 @@ void uaeser_clearbuffers (void *vsd) {}
+ int uaeser_open (void *vsd, void *user, int unit) { return 0; }
+ void uaeser_close (void *vsd) {}
+ 
+-static HANDLE hCom = INVALID_HANDLE_VALUE;
++static HANDLE hCom = (HANDLE)INVALID_HANDLE_VALUE;
+ static DCB dcb;
+ static DWORD fDtrControl = DTR_CONTROL_DISABLE, fRtsControl = RTS_CONTROL_DISABLE;
+ #if 0
+@@ -469,7 +469,7 @@ void closeser (void)
+ #if 0
+ 		CloseHandle (hCom);
+ #endif
+-		hCom = INVALID_HANDLE_VALUE;
++		hCom = (HANDLE)INVALID_HANDLE_VALUE;
+ 	}
+ 	if (midi_ready) {
+ 		extern uae_u16 serper;
+diff --git a/retrodep/serial_host.c b/retrodep/serial_host.c
+index 3d6c550..d091247 100644
+--- a/retrodep/serial_host.c
++++ b/retrodep/serial_host.c
+@@ -128,7 +128,7 @@ void shmem_serial_delete(void)
+ 		CloseHandle(sermap_handle);
+ #endif
+ 	sermap_data = NULL;
+-	sermap_handle = NULL;
++	sermap_handle = (HANDLE)NULL;
+ 	sermap1 = sermap2 = NULL;
+ }
+ 

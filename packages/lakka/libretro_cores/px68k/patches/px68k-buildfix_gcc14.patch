@@ -1,0 +1,48 @@
+diff --git a/libretro.c b/libretro.c
+index 01f1890..44fe52b 100644
+--- a/libretro.c
++++ b/libretro.c
+@@ -4,6 +4,7 @@
+ #include <ctype.h>
+ #include <string.h>
+ #include <math.h>
++#include <strings.h>
+ 
+ #include <libretro.h>
+ #include <libretro_core_options.h>
+diff --git a/libretro/fake.c b/libretro/fake.c
+index e41c061..3866f1e 100644
+--- a/libretro/fake.c
++++ b/libretro/fake.c
+@@ -31,6 +31,7 @@
+ #include <sys/stat.h>
+ #include <sys/time.h>
+ #include <sys/types.h>
++#include <strings.h>
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
+diff --git a/libretro/peace.c b/libretro/peace.c
+index 84bc910..ecae397 100644
+--- a/libretro/peace.c
++++ b/libretro/peace.c
+@@ -28,6 +28,7 @@
+ #include <sys/stat.h>
+ #include <sys/time.h>
+ #include <sys/types.h>
++#include <strings.h>
+ 
+ #include <fcntl.h>
+ #include <stdio.h>
+diff --git a/libretro/winui.c b/libretro/winui.c
+index 8991958..fb80c9a 100644
+--- a/libretro/winui.c
++++ b/libretro/winui.c
+@@ -30,6 +30,7 @@
+ #include <stdint.h>
+ #include <sys/stat.h>
+ #include <errno.h>
++#include <strings.h>
+ 
+ #include "common.h"
+ #include "keyboard.h"

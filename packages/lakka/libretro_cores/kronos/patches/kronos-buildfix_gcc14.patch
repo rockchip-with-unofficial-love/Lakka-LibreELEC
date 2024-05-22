@@ -1,0 +1,93 @@
+diff --git a/yabause/src/core/sh2/sh2_kronos/src/sh2int.c b/yabause/src/core/sh2/sh2_kronos/src/sh2int.c
+index 6536900..66c6ea9 100644
+--- a/yabause/src/core/sh2/sh2_kronos/src/sh2int.c
++++ b/yabause/src/core/sh2/sh2_kronos/src/sh2int.c
+@@ -35,6 +35,8 @@
+ 
+ #include "cs2.h"
+ 
++#include <yui.h>
++
+ #define LOCK(A)
+ #define UNLOCK(A)
+ 
+diff --git a/yabause/src/sys/sh2/src/sh2core.c b/yabause/src/sys/sh2/src/sh2core.c
+index 1dbea44..ee7d03b 100644
+--- a/yabause/src/sys/sh2/src/sh2core.c
++++ b/yabause/src/sys/sh2/src/sh2core.c
+@@ -27,6 +27,8 @@
+ #include "debug.h"
+ #include "memory.h"
+ #include "yabause.h"
++#include <scu.h>
++#include <error.h>
+ 
+ SH2_struct *SSH2=NULL;
+ SH2_struct *MSH2=NULL;
+diff --git a/yabause/src/sys/vdp1/src/vdp1.c b/yabause/src/sys/vdp1/src/vdp1.c
+index fbe1753..5a13df8 100644
+--- a/yabause/src/sys/vdp1/src/vdp1.c
++++ b/yabause/src/sys/vdp1/src/vdp1.c
+@@ -2105,7 +2105,7 @@ void Vdp1DebugCommand(u32 number, char *outstring)
+              rw = cmd.CMDXB;
+              rh = cmd.CMDYB;
+              if ((rw < 0)||(rh <0)) {
+-               return 0;
++               return;
+              }
+              break;
+            case 0x6: // Upper-Center
+@@ -2113,7 +2113,7 @@ void Vdp1DebugCommand(u32 number, char *outstring)
+              rh = cmd.CMDYB;
+              x = x - rw / 2;
+              if ((rw < 0)||(rh <0)) {
+-               return 0;
++               return;
+              }
+              break;
+            case 0x7: // Upper-Right
+@@ -2121,7 +2121,7 @@ void Vdp1DebugCommand(u32 number, char *outstring)
+              rh = cmd.CMDYB;
+              x = x - rw;
+              if ((rw < 0)||(rh <0)) {
+-               return 0;
++               return;
+              }
+              break;
+            case 0x9: // Center-left
+@@ -2129,7 +2129,7 @@ void Vdp1DebugCommand(u32 number, char *outstring)
+              rh = cmd.CMDYB;
+              y = y - rh / 2;
+              if ((rw < 0)||(rh <0)) {
+-               return 0;
++               return;
+              }
+              break;
+            case 0xA: // Center-center
+@@ -2144,7 +2144,7 @@ void Vdp1DebugCommand(u32 number, char *outstring)
+              x = x - rw;
+              y = y - rh / 2;
+              if ((rw < 0)||(rh <0)) {
+-               return 0;
++               return;
+              }
+              break;
+            case 0xD: // Lower-left
+@@ -2152,7 +2152,7 @@ void Vdp1DebugCommand(u32 number, char *outstring)
+              rh = cmd.CMDYB;
+              y = y - rh;
+              if ((rw < 0)||(rh <0)) {
+-               return 0;
++               return;
+              }
+              break;
+            case 0xE: // Lower-center
+@@ -2167,7 +2167,7 @@ void Vdp1DebugCommand(u32 number, char *outstring)
+              x = x - rw;
+              y = y - rh;
+              if ((rw < 0)||(rh <0)) {
+-               return 0;
++               return;
+              }
+              break;
+            default: break;

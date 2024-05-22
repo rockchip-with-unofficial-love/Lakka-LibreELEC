@@ -1,0 +1,62 @@
+diff --git a/dependencies/SDL_image/IMG_png.c b/dependencies/SDL_image/IMG_png.c
+index 5f91f15..32a1989 100644
+--- a/dependencies/SDL_image/IMG_png.c
++++ b/dependencies/SDL_image/IMG_png.c
+@@ -263,15 +263,15 @@ void IMG_QuitPNG()
+ int IMG_InitPNG()
+ {
+ 	if ( lib.loaded == 0 ) {
+-		lib.png_create_info_struct = png_create_info_struct;
++		lib.png_create_info_struct = (png_info * (*)(png_struct *))png_create_info_struct;
+ 		lib.png_create_read_struct = png_create_read_struct;
+ 		lib.png_destroy_read_struct = png_destroy_read_struct;
+-		lib.png_get_IHDR = png_get_IHDR;
+-		lib.png_get_channels = png_get_channels;
+-		lib.png_get_io_ptr = png_get_io_ptr;
+-		lib.png_get_PLTE = png_get_PLTE;
+-		lib.png_get_tRNS = png_get_tRNS;
+-		lib.png_get_valid = png_get_valid;
++		lib.png_get_IHDR = (png_uint_32 (*)(png_struct *, png_info *, png_uint_32 *, png_uint_32 *, int *, int *, int *, int *, int *))png_get_IHDR;
++		lib.png_get_channels = (png_byte (*)(png_struct *, png_info *))png_get_channels;
++		lib.png_get_io_ptr = (void * (*)(png_struct *))png_get_io_ptr;
++		lib.png_get_PLTE = (png_uint_32 (*)(png_struct *, png_info *, png_color **, int *))png_get_PLTE;
++		lib.png_get_tRNS = (png_uint_32 (*)(png_struct *, png_info *, png_byte **, int *, png_color_16 **))png_get_tRNS;
++		lib.png_get_valid = (png_uint_32 (*)(png_struct *, png_info *, png_uint_32))png_get_valid;
+ 		lib.png_read_image = png_read_image;
+ 		lib.png_read_info = png_read_info;
+ 		lib.png_read_update_info = png_read_update_info;
+@@ -280,7 +280,7 @@ int IMG_InitPNG()
+ 		lib.png_set_packing = png_set_packing;
+ 		lib.png_set_read_fn = png_set_read_fn;
+ 		lib.png_set_strip_16 = png_set_strip_16;
+-		lib.png_sig_cmp = png_sig_cmp;
++		lib.png_sig_cmp = (int (*)(png_byte *, png_size_t,  png_size_t))png_sig_cmp;
+ #ifndef LIBPNG_VERSION_12
+ 		lib.png_set_longjmp_fn = png_set_longjmp_fn;
+ #endif
+diff --git a/dependencies/SDL_mixer/dynamic_ogg.c b/dependencies/SDL_mixer/dynamic_ogg.c
+index 345a8c8..9804364 100644
+--- a/dependencies/SDL_mixer/dynamic_ogg.c
++++ b/dependencies/SDL_mixer/dynamic_ogg.c
+@@ -108,7 +108,7 @@ int Mix_InitOgg()
+ 	if ( vorbis.loaded == 0 ) {
+ 		vorbis.ov_clear = ov_clear;
+ 		vorbis.ov_info = ov_info;
+-		vorbis.ov_open_callbacks = ov_open_callbacks;
++		vorbis.ov_open_callbacks = (int (*)(void *, OggVorbis_File *, char *, long int,  ov_callbacks))ov_open_callbacks;
+ 		vorbis.ov_pcm_total = ov_pcm_total;
+ 		vorbis.ov_read = ov_read;
+ 		vorbis.ov_time_seek = ov_time_seek;
+diff --git a/dependencies/SDL/src/audio/libretro/SDL_libretroaudio.c b/dependencies/SDL/src/audio/libretro/SDL_libretroaudio.c
+index ddffd52..dcb06de 100644
+--- a/dependencies/SDL/src/audio/libretro/SDL_libretroaudio.c
++++ b/dependencies/SDL/src/audio/libretro/SDL_libretroaudio.c
+@@ -155,7 +155,7 @@ void LIBRETRO_MixAudio()
+ 	(*spec->callback)(spec->userdata, audio->hidden->mixbuf, audio->hidden->mixlen);
+ 	SDL_mutexV(audio->mixer_lock);
+ 
+-	libretro_audio_cb(audio->hidden->mixbuf, spec->size / spec->channels / 2);
++	libretro_audio_cb((int16_t*)(audio->hidden->mixbuf), spec->size / spec->channels / 2);
+ }
+ 
+ static int LIBRETRO_OpenAudio(_THIS, SDL_AudioSpec *spec)

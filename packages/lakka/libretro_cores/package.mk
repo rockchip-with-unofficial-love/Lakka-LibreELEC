@@ -265,10 +265,12 @@ if [ -n "${CUSTOM_LIBRETRO_CORES}" ]; then
   LIBRETRO_CORES="${CUSTOM_LIBRETRO_CORES}"
 fi
 
-# temporary disabled due to build errors for all targets
-for core in citra pcsx2 same_cdi ; do
-  LIBRETRO_CORES="${LIBRETRO_CORES// ${core} /}"
-done
+# temporary disabled due to build error with gcc14  for all targets except Switch (uses older gcc)
+if [ ! "${PROJECT}" = "L4T" -a ! "${DEVICE}" = "Switch" ]; then
+  for core in citra dolphin ecwolf np2kai pcsx2 ppsspp same_cdi ; do
+    LIBRETRO_CORES="${LIBRETRO_CORES// ${core} /}"
+  done
+fi
 
 # finally set package dependencies
 PKG_DEPENDS_TARGET="${LIBRETRO_CORES}"

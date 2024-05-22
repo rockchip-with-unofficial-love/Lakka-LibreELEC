@@ -1,0 +1,93 @@
+diff --git a/deps/libretro-common/encodings/encoding_utf.c b/deps/libretro-common/encodings/encoding_utf.c
+index 2760824..76f52e5 100644
+--- a/deps/libretro-common/encodings/encoding_utf.c
++++ b/deps/libretro-common/encodings/encoding_utf.c
+@@ -23,7 +23,10 @@
+ #include <stdint.h>
+ #include <stdlib.h>
+ #include <stddef.h>
++
++#define __USE_XOPEN_EXTENDED
+ #include <string.h>
++#undef __USE_XOPEN_EXTENDED
+ 
+ #include <boolean.h>
+ #include <compat/strl.h>
+diff --git a/deps/libretro-common/file/file_path.c b/deps/libretro-common/file/file_path.c
+index fc11270..04ee349 100644
+--- a/deps/libretro-common/file/file_path.c
++++ b/deps/libretro-common/file/file_path.c
+@@ -22,7 +22,11 @@
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
++
++#define __USE_XOPEN_EXTENDED
+ #include <string.h>
++#undef __USE_XOPEN_EXTENDED
++
+ #include <time.h>
+ #include <errno.h>
+ 
+diff --git a/deps/libretro-common/file/file_path_io.c b/deps/libretro-common/file/file_path_io.c
+index 63587e3..b49e7e2 100644
+--- a/deps/libretro-common/file/file_path_io.c
++++ b/deps/libretro-common/file/file_path_io.c
+@@ -22,7 +22,11 @@
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
++
++#define __USE_XOPEN_EXTENDED
+ #include <string.h>
++#undef __USE_XOPEN_EXTENDED
++
+ #include <time.h>
+ #include <errno.h>
+ 
+diff --git a/deps/libretro-common/string/stdstring.c b/deps/libretro-common/string/stdstring.c
+index d637988..433003c 100644
+--- a/deps/libretro-common/string/stdstring.c
++++ b/deps/libretro-common/string/stdstring.c
+@@ -22,7 +22,10 @@
+ 
+ #include <stdint.h>
+ #include <ctype.h>
++
++#define __USE_XOPEN_EXTENDED
+ #include <string.h>
++#undef __USE_XOPEN_EXTENDED
+ 
+ #include <string/stdstring.h>
+ #include <encodings/utf.h>
+diff --git a/deps/libretro-common/vfs/vfs_implementation.c b/deps/libretro-common/vfs/vfs_implementation.c
+index 7a24a95..6ae8e24 100644
+--- a/deps/libretro-common/vfs/vfs_implementation.c
++++ b/deps/libretro-common/vfs/vfs_implementation.c
+@@ -20,9 +20,16 @@
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+ 
++#define _XOPEN_SOURCE
+ #include <stdio.h>
++#undef _XOPEN_SOURCE
++
+ #include <stdlib.h>
++
++#define __USE_XOPEN_EXTENDED
+ #include <string.h>
++#undef __USE_XOPEN_EXTENDED
++
+ #include <errno.h>
+ #include <sys/types.h>
+ 
+@@ -56,7 +63,9 @@
+ #  if !defined(VITA)
+ #  include <dirent.h>
+ #  endif
++#  define __USE_XOPEN_EXTENDED
+ #  include <unistd.h>
++#  undef __USE_XOPEN_EXTENDED
+ #  if defined(ORBIS)
+ #  include <sys/fcntl.h>
+ #  include <sys/dirent.h>
