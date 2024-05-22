@@ -104,6 +104,9 @@
   # CEC Support
     CEC_FRAMEWORK_SUPPORT="no"
 
+  # build and install iSCSI support - iscsistart (yes / no)
+    ISCSI_SUPPORT="yes"
+
   # Set Distro Specific options
     if [ "${DISTRO}" = "LibreELEC" ]; then
       #Add Support for git downloads
