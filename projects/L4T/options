@@ -103,8 +103,8 @@
 
   # CEC Support
     CEC_FRAMEWORK_SUPPORT="no"
-  # ISCSI support
 
+  # build and install iSCSI support - iscsistart (yes / no)
     ISCSI_SUPPORT="yes"
 
   # Set Distro Specific options
