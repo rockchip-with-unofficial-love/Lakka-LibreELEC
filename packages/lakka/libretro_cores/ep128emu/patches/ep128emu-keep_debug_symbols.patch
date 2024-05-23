@@ -1,0 +1,16 @@
+diff --git a/Makefile b/Makefile
+index d3d0618..2350e73 100644
+--- a/Makefile
++++ b/Makefile
+@@ -318,9 +318,8 @@ ifeq ($(DEBUG), 1)
+ 	CFLAGS += -O0 -g
+ 	CXXFLAGS += -O0 -g
+ else
+-    CFLAGS += -O3 -fno-inline-functions -fomit-frame-pointer -ffast-math
+-	CXXFLAGS += -O3 -fno-inline-functions -fomit-frame-pointer -ffast-math
+-    LDFLAGS += -s
++    CFLAGS += -O3 -fno-inline-functions -fomit-frame-pointer -ffast-math -g
++	CXXFLAGS += -O3 -fno-inline-functions -fomit-frame-pointer -ffast-math -g
+ endif
+ 
+ DEFINES := $(PLATFORM_DEFINES) -DEP128EMU_LIBRETRO_CORE

@@ -1,0 +1,14 @@
+diff --git a/Makefile b/Makefile
+index ca4995b5b..060d3a97f 100644
+--- a/Makefile
++++ b/Makefile
+@@ -396,8 +396,7 @@ endif
+ ifeq ($(DEBUG), 1)
+    COMMONFLAGS += -O0 -g
+ else
+-   COMMONFLAGS += -O3 -DNDEBUG -Wno-format -Wno-format-security
+-   LDFLAGS     += -s
++   COMMONFLAGS += -O3 -DNDEBUG -Wno-format -Wno-format-security -g
+ endif
+ 
+ # 7zip
