@@ -1,0 +1,19 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index bfd5e69..5cc4a5d 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -202,8 +202,14 @@ endif()
+ if(LIBRETRO)
+ 	add_definitions(-D__LIBRETRO__)
+ 	add_definitions(-DGLEW_NO_GLU)
++	if(ARM64)
++		add_compile_options(-mno-outline-atomics)
++	endif()
+ 	if(NOT MSVC)
+ 		add_compile_options(-fPIC)
++		if(NOT ANDROID)
++			set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++17")
++		endif()
+ 	endif()
+ endif()
+ 
