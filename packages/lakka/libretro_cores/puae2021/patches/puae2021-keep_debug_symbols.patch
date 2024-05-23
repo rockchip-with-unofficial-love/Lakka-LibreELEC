@@ -1,0 +1,14 @@
+diff --git a/Makefile b/Makefile
+index 8acf4f5..56cd3d0 100644
+--- a/Makefile
++++ b/Makefile
+@@ -292,8 +292,7 @@ endif
+ ifeq ($(DEBUG), 1)
+    CFLAGS += -O0 -g
+ else
+-   CFLAGS += -O3 -Wno-format -Wno-format-security
+-   LDFLAGS += -s
++   CFLAGS += -O3 -Wno-format -Wno-format-security -g
+ endif
+ 
+ # Zlib
