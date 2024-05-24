@@ -38,6 +38,12 @@
 # GOLD (Google Linker) support
   GOLD_SUPPORT="yes"
 
+# MOLD (Modern Linker) support
+  MOLD_SUPPORT="no"
+
+# default linker (bfd / gold / mold)
+  DEFAULT_LINKER="gold"
+
 # HARDENING (security relevant linker and compiler flags) support
   HARDENING_SUPPORT="no"
 
@@ -92,11 +98,11 @@
 # Mediacenter to use (kodi / no)
   MEDIACENTER="lakka"
 
-# build and install ALSA support (yes / no)
-  ALSA_SUPPORT="yes"
-
 # build and install PulseAudio support (yes / no)
   PULSEAUDIO_SUPPORT="no"
+
+# build and install pipewire support (yes / no)
+  PIPEWIRE_SUPPORT="no"
 
 # build and install bluetooth support (yes / no)
   BLUETOOTH_SUPPORT="yes"
@@ -109,7 +115,7 @@
   DISTRO_SRC="http://sources.libreelec.tv/$LIBREELEC_VERSION"
 
 # build and install iSCSI support - iscsistart (yes / no)
-  ISCSI_SUPPORT="yes"
+  ISCSI_SUPPORT="no"
 
 # build with NFS support (mounting nfs shares via the OS) (yes / no)
   NFS_SUPPORT="yes"
@@ -138,12 +144,6 @@
 # This adds support for parted and mkfs.ext3/4 to initramfs for OEM usage
   INITRAMFS_PARTED_SUPPORT="no"
 
-# build and install NTFS-3G fuse support (yes / no)
-  NTFS3G="yes"
-
-# build and install hfs filesystem utilities (yes / no)
-  HFSTOOLS="yes"
-
 # build and install nano text editor (yes / no)
   NANO_EDITOR="yes"
 
@@ -162,6 +162,9 @@
 # OEM packages for OEM's (yes / no)
   OEM_SUPPORT="no"
 
+# build and install ALSA Audio support (yes / no)
+  ALSA_SUPPORT="yes"
+
 # additional packages to install:
 # Space separated list is supported,
 # e.g. ADDITIONAL_PACKAGES="PACKAGE1 PACKAGE2"
@@ -172,9 +175,6 @@
 
 # Do not build the OVA image
   SKIP_VIRTUAL_APPLIANCE="yes"
-
-# PINN group for the distro
-  DISTRO_PINN_GROUP="Games"
 
 # List of optional RetroArch / libretro packages
   LIBRETRO_OPTIONAL="\
