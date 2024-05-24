@@ -1,14 +1,13 @@
 PKG_NAME="kronos"
-PKG_VERSION="3646a3fc9e414d9474b7a21a39bc2734bb805932"
+PKG_VERSION="66a74d08f4ee4674377ca3ffecfec9744ff9e290"
 PKG_LICENSE="GPLv2"
-PKG_SITE="https://github.com/libretro/yabause"
+PKG_SITE="https://github.com/FCare/Kronos"
 PKG_URL="${PKG_SITE}.git"
-PKG_GIT_CLONE_BRANCH="kronos"
 PKG_DEPENDS_TARGET="toolchain"
 PKG_LONGDESC="Port of Kronos to libretro."
 PKG_TOOLCHAIN="make"
 
-PKG_MAKE_OPTS_TARGET="-C yabause/src/libretro HAVE_CDROM=1"
+PKG_MAKE_OPTS_TARGET="-C ../yabause/src/libretro HAVE_CDROM=1"
 
 if [ "${OPENGL_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGL}"
@@ -34,7 +33,13 @@ elif [ "${ARCH}" = "aarch64" ]; then
   PKG_MAKE_OPTS_TARGET+=" platform=arm64"
 fi
 
+pre_make_target() {
+  mkdir ${PKG_BUILD}/build_retro
+  cd ${PKG_BUILD}/build_retro
+  make ${PKG_MAKE_OPTS_TARGET} generate-files
+}
+
 makeinstall_target() {
   mkdir -p ${INSTALL}/usr/lib/libretro
-    cp -v yabause/src/libretro/kronos_libretro.so ${INSTALL}/usr/lib/libretro/
+    cp -v ../yabause/src/libretro/kronos_libretro.so ${INSTALL}/usr/lib/libretro/
 }
