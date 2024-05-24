@@ -22,6 +22,8 @@ PKG_CONFIGURE_OPTS_TARGET="--disable-vg \
 
 PKG_MAKE_OPTS_TARGET="V=1 \
                       HAVE_LAKKA=1 \
+                      HAVE_LAKKA_PROJECT="${DEVICE:-${PROJECT}}.${ARCH}" \
+                      HAVE_LAKKA_SERVER="${LAKKA_UPDATE_SERVER_URL}" \
                       HAVE_CHEEVOS=1 \
                       HAVE_HAVE_ZARCH=0 \
                       HAVE_WIFI=1 \

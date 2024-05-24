@@ -184,3 +184,20 @@
                      libretro_database \
                      core_info \
                     "
+
+# Update server
+  LAKKA_BUILD_TYPE="${LAKKA_BUILD_TYPE:-release}"
+
+  if [ -z "${LAKKA_UPDATE_SERVER_URL}" ]; then
+    case ${LAKKA_BUILD_TYPE} in
+      release)
+        LAKKA_UPDATE_SERVER_URL="http://le.builds.lakka.tv"
+        ;;
+      nightly)
+        LAKKA_UPDATE_SERVER_URL="http://nightly.builds.lakka.tv/.updater"
+        ;;
+      devel)
+        LAKKA_UPDATE_SERVER_URL="http://nightly.builds.lakka.tv/.devbuild"
+        ;;
+    esac
+  fi
