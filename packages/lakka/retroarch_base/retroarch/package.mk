@@ -131,14 +131,6 @@ if [ "${PROJECT}" = "L4T" ]; then
   fi
 fi
 
-if [ "${LAKKA_NIGHTLY}" = yes ]; then
-  PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_NIGHTLY=1"
-elif [ "${LAKKA_DEVBUILD}" = yes ]; then
-  PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_DEVBUILD=1"
-elif [ -n "${LAKKA_CANARY_PATH}" ]; then
-  PKG_MAKE_OPTS_TARGET+=" HAVE_LAKKA_CANARY=\"${LAKKA_CANARY_PATH}\""
-fi
-
 pre_configure_target() {
   TARGET_CONFIGURE_OPTS=""
   cd ${PKG_BUILD}
