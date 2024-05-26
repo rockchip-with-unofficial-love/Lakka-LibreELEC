@@ -14,8 +14,6 @@ PKG_LONGDESC="Cairo is a vector graphics library with cross-device output suppor
 configure_package() {
   if [ "${DISPLAYSERVER}" = "x11" ]; then
     PKG_DEPENDS_TARGET+=" libXrender libX11 mesa"
-  elif [ "${DISTRO}" = "Lakka" ]; then
-    PKG_DEPENDS_TARGET+=" libXrender libX11 "
   fi
 }
 
@@ -37,8 +35,6 @@ pre_configure_target() {
                          -Dgtk_doc=false"
 
   if [ "${DISPLAYSERVER}" = "x11" ]; then
-    PKG_MESON_OPTS_TARGET+=" -Dxlib=enabled"
-  elif [ "${DISTRO}" = "Lakka" ]; then
     PKG_MESON_OPTS_TARGET+=" -Dxlib=enabled"
   else
     PKG_MESON_OPTS_TARGET+=" -Dxlib=disabled"
