@@ -17,22 +17,18 @@ fi
 
 if [ "${OPENGLES_SUPPORT}" = "yes" ]; then
   PKG_DEPENDS_TARGET+=" ${OPENGLES}"
-  if [[ ${DEVICE} =~ ^RPi[4|5].* ]] || [ ${DEVICE} = "RK3288" ] || [ "${DEVICE}" = "RK3399" ]; then
+  if [ "${DEVICE}" = "RPi3" -o "${DEVICE:0:4}" = "RPi4" -o "${DEVICE}" = "RPi5" -o "${DEVICE}" = "RK3288" -o "${DEVICE}" = "RK3399" ]; then
     # enable GLES3
-    PKG_CMAKE_OPTS_TARGET+=" -DUSE_GLES=ON"
+    PKG_CMAKE_OPTS_TARGET+=" -DUSE_GLES=ON -DUSE_GLES2=OFF"
   else
     # enable GLES2
-    PKG_CMAKE_OPTS_TARGET+=" -DUSE_GLES2=ON"
+    PKG_CMAKE_OPTS_TARGET+=" -DUSE_GLES=OFF -DUSE_GLES2=ON"
   fi
 fi
 
 if [ "${VULKAN_SUPPORT}" = yes ]; then
   PKG_DEPENDS_TARGET+=" ${VULKAN}"
   PKG_CMAKE_OPTS_TARGET+=" -DUSE_VULKAN=ON"
-fi
-
-if [ "${PROJECT}" = "RPi" -a "${DEVICE}" = "RPi5" ]; then
-  PKG_CMAKE_OPTS_TARGET+=" -DPAGE_SIZE=16384"
 fi
 
 pre_make_target() {
