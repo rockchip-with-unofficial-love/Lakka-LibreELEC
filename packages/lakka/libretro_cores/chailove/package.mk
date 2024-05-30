@@ -1,5 +1,5 @@
 PKG_NAME="chailove"
-PKG_VERSION="fecf7dadb9e4f8c021fafd01f7be0d7992b409a4"
+PKG_VERSION="fa103d42a70ad18765691f730b543a9ed11c1cba"
 PKG_LICENSE="MIT"
 PKG_SITE="https://github.com/libretro/libretro-chailove"
 PKG_URL="${PKG_SITE}.git"
