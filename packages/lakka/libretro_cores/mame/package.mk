@@ -1,5 +1,5 @@
 PKG_NAME="mame"
-PKG_VERSION="1c6d288bf15705ab93c66a11af40eaf9d2a515a2"
+PKG_VERSION="4ee35952a8fdb1332e970fa14c3e79c8c968050c"
 PKG_ARCH="aarch64 x86_64"
 PKG_LICENSE="MAME"
 PKG_SITE="https://github.com/libretro/mame"
