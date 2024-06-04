@@ -1,6 +1,6 @@
 PKG_NAME="scummvm"
-PKG_VERSION="8ed85326fa6215a267beb953271c4c4a30fa6d57"
-PKG_LICENSE="GPLv2"
+PKG_VERSION="8ce898dcc55e56b75b12ba2a5023bb062e918198"
+PKG_LICENSE="GPLv3"
 PKG_SITE="https://github.com/libretro/scummvm"
 PKG_URL="${PKG_SITE}.git"
 PKG_DEPENDS_TARGET="toolchain curl fluidsynth flac libvorbis zlib faad2 freetype"
