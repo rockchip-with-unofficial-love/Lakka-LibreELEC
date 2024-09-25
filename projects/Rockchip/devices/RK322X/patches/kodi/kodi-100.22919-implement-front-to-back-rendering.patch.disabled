@@ -1,0 +1,3443 @@
+From f7c8a9799d9294c4e255fd2f025350587568715c Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Mon, 6 Mar 2023 17:24:46 +0100
+Subject: [PATCH 01/23] Implement front to back rendering
+
+---
+ system/shaders/GL/1.2/gl_shader_vert.glsl     |  2 +
+ .../GL/1.2/gl_shader_vert_default.glsl        |  1 +
+ system/shaders/GL/1.2/gl_yuv2rgb_vertex.glsl  |  1 +
+ system/shaders/GL/1.5/gl_shader_vert.glsl     |  2 +
+ .../GL/1.5/gl_shader_vert_default.glsl        |  1 +
+ system/shaders/GL/1.5/gl_yuv2rgb_vertex.glsl  |  1 +
+ system/shaders/GLES/2.0/gles_shader.vert      |  2 +
+ system/shaders/GLES/2.0/gles_yuv2rgb.vert     |  1 +
+ .../VideoRenderers/LinuxRendererGL.cpp        | 59 +++++++++++++++---
+ .../VideoRenderers/LinuxRendererGL.h          |  1 +
+ .../VideoRenderers/LinuxRendererGLES.cpp      | 40 +++++++++++++
+ .../VideoRenderers/LinuxRendererGLES.h        |  1 +
+ xbmc/guilib/GUIBaseContainer.cpp              | 57 ++++++++++++++++--
+ xbmc/guilib/GUIBaseContainer.h                |  9 +++
+ xbmc/guilib/GUIBorderedImage.cpp              |  2 +-
+ xbmc/guilib/GUIButtonControl.cpp              |  5 +-
+ xbmc/guilib/GUIControl.cpp                    |  5 ++
+ xbmc/guilib/GUIControl.h                      |  1 +
+ xbmc/guilib/GUIControlGroup.cpp               | 35 +++++++++--
+ xbmc/guilib/GUIControlGroup.h                 |  1 +
+ xbmc/guilib/GUIEditControl.cpp                |  3 +
+ xbmc/guilib/GUIFadeLabelControl.cpp           |  3 +
+ xbmc/guilib/GUIFontTTFGL.cpp                  |  5 ++
+ xbmc/guilib/GUIFontTTFGLES.cpp                |  5 ++
+ xbmc/guilib/GUILabelControl.cpp               |  3 +
+ xbmc/guilib/GUIListItemLayout.cpp             |  5 ++
+ xbmc/guilib/GUIListItemLayout.h               |  1 +
+ xbmc/guilib/GUIListLabel.cpp                  |  3 +
+ xbmc/guilib/GUISettingsSliderControl.cpp      |  3 +
+ xbmc/guilib/GUISpinControl.cpp                |  3 +
+ xbmc/guilib/GUITextBox.cpp                    | 10 ++++
+ xbmc/guilib/GUITextBox.h                      |  1 +
+ xbmc/guilib/GUITexture.cpp                    | 32 +++++++---
+ xbmc/guilib/GUITexture.h                      |  3 +-
+ xbmc/guilib/GUITextureGL.cpp                  |  3 +
+ xbmc/guilib/GUITextureGLES.cpp                |  3 +
+ xbmc/guilib/GUIVideoControl.cpp               |  3 +
+ xbmc/guilib/GUIWindow.cpp                     |  2 +
+ xbmc/guilib/GUIWindowManager.cpp              | 56 +++++++++++++++++
+ xbmc/guilib/GUIWindowManager.h                |  2 +
+ xbmc/rendering/RenderSystem.cpp               | 22 ++++++-
+ xbmc/rendering/RenderSystem.h                 | 17 +++++-
+ xbmc/rendering/dx/RenderSystemDX.cpp          |  7 ++-
+ xbmc/rendering/dx/RenderSystemDX.h            |  2 +-
+ xbmc/rendering/gl/GLShader.cpp                |  1 +
+ xbmc/rendering/gl/GLShader.h                  |  2 +
+ xbmc/rendering/gl/RenderSystemGL.cpp          | 60 ++++++++++++++++---
+ xbmc/rendering/gl/RenderSystemGL.h            |  5 +-
+ xbmc/rendering/gles/GLESShader.cpp            |  1 +
+ xbmc/rendering/gles/GLESShader.h              |  2 +
+ xbmc/rendering/gles/RenderSystemGLES.cpp      | 60 ++++++++++++++++---
+ xbmc/rendering/gles/RenderSystemGLES.h        |  7 ++-
+ xbmc/settings/AdvancedSettings.cpp            |  1 +
+ xbmc/settings/AdvancedSettings.h              |  1 +
+ xbmc/utils/TransformMatrix.h                  | 12 ++++
+ xbmc/video/windows/GUIWindowFullScreen.cpp    |  9 ++-
+ xbmc/windowing/GraphicContext.cpp             | 34 ++++++++++-
+ xbmc/windowing/GraphicContext.h               | 33 +++++++++-
+ xbmc/windowing/X11/GLContextEGL.cpp           |  2 +-
+ xbmc/windows/GUIWindowDebugInfo.cpp           |  6 ++
+ 60 files changed, 609 insertions(+), 51 deletions(-)
+
+diff --git a/system/shaders/GL/1.2/gl_shader_vert.glsl b/system/shaders/GL/1.2/gl_shader_vert.glsl
+index 7c10b5f1bfb4b..fef2d2d94e8e3 100644
+--- a/system/shaders/GL/1.2/gl_shader_vert.glsl
++++ b/system/shaders/GL/1.2/gl_shader_vert.glsl
+@@ -29,11 +29,13 @@ varying vec4 m_cord1;
+ varying vec4 m_colour;
+ uniform mat4 m_proj;
+ uniform mat4 m_model;
++uniform float m_depth;
+ 
+ void main ()
+ {
+   mat4 mvp    = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
++  gl_Position.z = m_depth * gl_Position.w;
+   m_colour    = m_attrcol;
+   m_cord0     = m_attrcord0;
+   m_cord1     = m_attrcord1;
+diff --git a/system/shaders/GL/1.2/gl_shader_vert_default.glsl b/system/shaders/GL/1.2/gl_shader_vert_default.glsl
+index 554e15c3fdb73..937336ff0df93 100644
+--- a/system/shaders/GL/1.2/gl_shader_vert_default.glsl
++++ b/system/shaders/GL/1.2/gl_shader_vert_default.glsl
+@@ -28,4 +28,5 @@ void main ()
+ {
+   mat4 mvp    = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
++  gl_Position.z = 0.;
+ }
+diff --git a/system/shaders/GL/1.2/gl_yuv2rgb_vertex.glsl b/system/shaders/GL/1.2/gl_yuv2rgb_vertex.glsl
+index cdf3c56a71463..9f1d67e78b938 100644
+--- a/system/shaders/GL/1.2/gl_yuv2rgb_vertex.glsl
++++ b/system/shaders/GL/1.2/gl_yuv2rgb_vertex.glsl
+@@ -32,6 +32,7 @@ void main ()
+ {
+   mat4 mvp    = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
++  gl_Position.z = 0.;
+   m_cordY     = m_attrcordY;
+   m_cordU     = m_attrcordU;
+   m_cordV     = m_attrcordV;
+diff --git a/system/shaders/GL/1.5/gl_shader_vert.glsl b/system/shaders/GL/1.5/gl_shader_vert.glsl
+index a8568310c2b88..c66c8047887d3 100644
+--- a/system/shaders/GL/1.5/gl_shader_vert.glsl
++++ b/system/shaders/GL/1.5/gl_shader_vert.glsl
+@@ -9,11 +9,13 @@ out vec4 m_cord1;
+ out vec4 m_colour;
+ uniform mat4 m_proj;
+ uniform mat4 m_model;
++uniform float m_depth;
+ 
+ void main ()
+ {
+   mat4 mvp    = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
++  gl_Position.z = m_depth * gl_Position.w;
+   m_colour    = m_attrcol;
+   m_cord0     = m_attrcord0;
+   m_cord1     = m_attrcord1;
+diff --git a/system/shaders/GL/1.5/gl_shader_vert_default.glsl b/system/shaders/GL/1.5/gl_shader_vert_default.glsl
+index e4f2d7c9eeced..70bb3b2f683af 100644
+--- a/system/shaders/GL/1.5/gl_shader_vert_default.glsl
++++ b/system/shaders/GL/1.5/gl_shader_vert_default.glsl
+@@ -8,4 +8,5 @@ void main ()
+ {
+   mat4 mvp    = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
++  gl_Position.z = 0.;
+ }
+diff --git a/system/shaders/GL/1.5/gl_yuv2rgb_vertex.glsl b/system/shaders/GL/1.5/gl_yuv2rgb_vertex.glsl
+index 4772bd4172989..f94f69d12e72f 100644
+--- a/system/shaders/GL/1.5/gl_yuv2rgb_vertex.glsl
++++ b/system/shaders/GL/1.5/gl_yuv2rgb_vertex.glsl
+@@ -14,6 +14,7 @@ void main ()
+ {
+   mat4 mvp = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
++  gl_Position.z = 0.;
+   m_cordY = m_attrcordY;
+   m_cordU = m_attrcordU;
+   m_cordV = m_attrcordV;
+diff --git a/system/shaders/GLES/2.0/gles_shader.vert b/system/shaders/GLES/2.0/gles_shader.vert
+index 890acbbb8190e..17b4ad7b48faf 100644
+--- a/system/shaders/GLES/2.0/gles_shader.vert
++++ b/system/shaders/GLES/2.0/gles_shader.vert
+@@ -30,11 +30,13 @@ varying lowp vec4 m_colour;
+ uniform mat4 m_proj;
+ uniform mat4 m_model;
+ uniform mat4 m_coord0Matrix;
++uniform float m_depth;
+ 
+ void main ()
+ {
+   mat4 mvp = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
++  gl_Position.z = m_depth * gl_Position.w;
+   m_colour = m_attrcol;
+   m_cord0 = m_coord0Matrix * m_attrcord0;
+   m_cord1 = m_attrcord1;
+diff --git a/system/shaders/GLES/2.0/gles_yuv2rgb.vert b/system/shaders/GLES/2.0/gles_yuv2rgb.vert
+index bc437afdc3046..8dfac9325795f 100644
+--- a/system/shaders/GLES/2.0/gles_yuv2rgb.vert
++++ b/system/shaders/GLES/2.0/gles_yuv2rgb.vert
+@@ -34,6 +34,7 @@ void main ()
+ {
+   mat4 mvp = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
++  gl_Position.z = 0.;
+   m_cordY = m_attrcordY;
+   m_cordU = m_attrcordU;
+   m_cordV = m_attrcordV;
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp
+index f0c94967c1b5c..e5ae0e1b7401e 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp
+@@ -528,9 +528,58 @@ void CLinuxRendererGL::RenderUpdate(int index, int index2, bool clear, unsigned
+ void CLinuxRendererGL::ClearBackBuffer()
+ {
+   //set the entire backbuffer to black
+-  glClearColor(m_clearColour, m_clearColour, m_clearColour, 0);
+-  glClear(GL_COLOR_BUFFER_BIT);
+-  glClearColor(0,0,0,0);
++  //if we do a two pass render, we have to draw a quad. else we might occlude OSD elements.
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_ALL_BACK_TO_FRONT)
++  {
++    glClearColor(m_clearColour, m_clearColour, m_clearColour, 0);
++    glClear(GL_COLOR_BUFFER_BIT);
++    glClearColor(0, 0, 0, 0);
++  }
++  else
++  {
++    ClearBackBufferQuad();
++  }
++}
++
++void CLinuxRendererGL::ClearBackBufferQuad()
++{
++  CRect windowRect(0, 0, CServiceBroker::GetWinSystem()->GetGfxContext().GetWidth(),
++                   CServiceBroker::GetWinSystem()->GetGfxContext().GetHeight());
++  struct Svertex
++  {
++    float x, y;
++  };
++
++  std::vector<Svertex> vertices{
++      {windowRect.x1, windowRect.y2 * 2},
++      {windowRect.x1, windowRect.y1},
++      {windowRect.x2 * 2, windowRect.y1},
++  };
++
++  glDisable(GL_BLEND);
++
++  m_renderSystem->EnableShader(ShaderMethodGL::SM_DEFAULT);
++  GLint posLoc = m_renderSystem->ShaderGetPos();
++  GLint uniCol = m_renderSystem->ShaderGetUniCol();
++
++  glUniform4f(uniCol, m_clearColour / 255.0f, m_clearColour / 255.0f, m_clearColour / 255.0f, 1.0f);
++
++  GLuint vertexVBO;
++  glGenBuffers(1, &vertexVBO);
++  glBindBuffer(GL_ARRAY_BUFFER, vertexVBO);
++  glBufferData(GL_ARRAY_BUFFER, sizeof(Svertex) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
++
++  glVertexAttribPointer(posLoc, 2, GL_FLOAT, GL_FALSE, sizeof(Svertex), 0);
++  glEnableVertexAttribArray(posLoc);
++
++  glDrawArrays(GL_TRIANGLES, 0, vertices.size());
++
++  glDisableVertexAttribArray(posLoc);
++  glBindBuffer(GL_ARRAY_BUFFER, 0);
++  glDeleteBuffers(1, &vertexVBO);
++
++  m_renderSystem->DisableShader();
+ }
+ 
+ //draw black bars around the video quad, this is more efficient than glClear()
+@@ -1044,8 +1093,6 @@ void CLinuxRendererGL::RenderSinglePass(int index, int field)
+     LoadShaders(field);
+   }
+ 
+-  glDisable(GL_DEPTH_TEST);
+-
+   // Y
+   glActiveTexture(GL_TEXTURE0);
+   glBindTexture(m_textureTarget, planes[0].id);
+@@ -1216,8 +1263,6 @@ void CLinuxRendererGL::RenderToFBO(int index, int field, bool weave /*= false*/)
+     }
+   }
+ 
+-  glDisable(GL_DEPTH_TEST);
+-
+   // Y
+   glActiveTexture(GL_TEXTURE0);
+   glBindTexture(m_textureTarget, planes[0].id);
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.h b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.h
+index 026d9512fd8b5..5770dbda48411 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.h
+@@ -87,6 +87,7 @@ class CLinuxRendererGL : public CBaseRenderer
+ 
+   bool Render(unsigned int flags, int renderBuffer);
+   void ClearBackBuffer();
++  void ClearBackBufferQuad();
+   void DrawBlackBars();
+ 
+   bool ValidateRenderer();
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+index e164f4cc97c00..22e58ef546c3c 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+@@ -358,6 +358,46 @@ void CLinuxRendererGLES::Update()
+   ValidateRenderTarget();
+ }
+ 
++void CLinuxRendererGLES::ClearBackBufferQuad()
++{
++  CRect windowRect(0, 0, CServiceBroker::GetWinSystem()->GetGfxContext().GetWidth(),
++                   CServiceBroker::GetWinSystem()->GetGfxContext().GetHeight());
++  struct Svertex
++  {
++    float x, y;
++  };
++
++  std::vector<Svertex> vertices{
++      {windowRect.x1, windowRect.y2 * 2},
++      {windowRect.x1, windowRect.y1},
++      {windowRect.x2 * 2, windowRect.y1},
++  };
++
++  glDisable(GL_BLEND);
++
++  m_renderSystem->EnableGUIShader(ShaderMethodGLES::SM_DEFAULT);
++  GLint posLoc = m_renderSystem->GUIShaderGetPos();
++  GLint uniCol = m_renderSystem->GUIShaderGetUniCol();
++
++  glUniform4f(uniCol, m_clearColour / 255.0f, m_clearColour / 255.0f, m_clearColour / 255.0f, 1.0f);
++
++  GLuint vertexVBO;
++  glGenBuffers(1, &vertexVBO);
++  glBindBuffer(GL_ARRAY_BUFFER, vertexVBO);
++  glBufferData(GL_ARRAY_BUFFER, sizeof(Svertex) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
++
++  glVertexAttribPointer(posLoc, 2, GL_FLOAT, GL_FALSE, sizeof(Svertex), 0);
++  glEnableVertexAttribArray(posLoc);
++
++  glDrawArrays(GL_TRIANGLES, 0, vertices.size());
++
++  glDisableVertexAttribArray(posLoc);
++  glBindBuffer(GL_ARRAY_BUFFER, 0);
++  glDeleteBuffers(1, &vertexVBO);
++
++  m_renderSystem->DisableGUIShader();
++}
++
+ void CLinuxRendererGLES::DrawBlackBars()
+ {
+   CRect windowRect(0, 0, CServiceBroker::GetWinSystem()->GetGfxContext().GetWidth(),
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
+index 8db3ed3b39829..351740d788221 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
+@@ -212,5 +212,6 @@ class CLinuxRendererGLES : public CBaseRenderer
+   CRect m_viewRect;
+ 
+ private:
++  void ClearBackBufferQuad();
+   void DrawBlackBars();
+ };
+diff --git a/xbmc/guilib/GUIBaseContainer.cpp b/xbmc/guilib/GUIBaseContainer.cpp
+index b6260b5e04357..ecb9c130faed6 100644
+--- a/xbmc/guilib/GUIBaseContainer.cpp
++++ b/xbmc/guilib/GUIBaseContainer.cpp
+@@ -272,6 +272,8 @@ void CGUIBaseContainer::Render()
+     float focusedPos = 0;
+     CGUIListItemPtr focusedItem;
+     int current = offset - cacheBefore;
++
++    std::vector<RENDERITEM> renderitems;
+     while (pos < end && m_items.size())
+     {
+       int itemNo = CorrectOffset(current, 0);
+@@ -290,9 +292,9 @@ void CGUIBaseContainer::Render()
+         else
+         {
+           if (m_orientation == VERTICAL)
+-            RenderItem(origin.x, pos, item.get(), false);
++            renderitems.emplace_back(RENDERITEM{origin.x, pos, item, false});
+           else
+-            RenderItem(pos, origin.y, item.get(), false);
++            renderitems.emplace_back(RENDERITEM{pos, origin.y, item, false});
+         }
+       }
+       // increment our position
+@@ -303,9 +305,25 @@ void CGUIBaseContainer::Render()
+     if (focusedItem)
+     {
+       if (m_orientation == VERTICAL)
+-        RenderItem(origin.x, focusedPos, focusedItem.get(), true);
++        renderitems.emplace_back(RENDERITEM{origin.x, focusedPos, focusedItem, true});
+       else
+-        RenderItem(focusedPos, origin.y, focusedItem.get(), true);
++        renderitems.emplace_back(RENDERITEM{focusedPos, origin.y, focusedItem, true});
++    }
++
++    if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++        RENDER_ORDER_FRONT_TO_BACK)
++    {
++      for (auto it = std::crbegin(renderitems); it != std::crend(renderitems); it++)
++      {
++        RenderItem(it->posX, it->posY, it->item.get(), it->focused);
++      }
++    }
++    else
++    {
++      for (const auto& renderitem : renderitems)
++      {
++        RenderItem(renderitem.posX, renderitem.posY, renderitem.item.get(), renderitem.focused);
++      }
+     }
+ 
+     CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
+@@ -1025,6 +1043,37 @@ void CGUIBaseContainer::UpdateVisibility(const CGUIListItem *item)
+   UpdateListProvider();
+ }
+ 
++void CGUIBaseContainer::AssignDepth()
++{
++  CGUIListItemPtr focusedItem = nullptr;
++  int32_t current = 0;
++
++  for (const auto& item : m_items)
++  {
++    bool focused = (current == GetOffset() + GetCursor());
++    if (focused)
++    {
++      focusedItem = item;
++    }
++    else
++    {
++      if (item->GetFocusedLayout())
++        item->GetFocusedLayout()->AssignDepth();
++      if (item->GetLayout())
++        item->GetLayout()->AssignDepth();
++    }
++    current++;
++  }
++
++  if (focusedItem)
++  {
++    if (focusedItem->GetFocusedLayout())
++      focusedItem->GetFocusedLayout()->AssignDepth();
++    if (focusedItem->GetLayout())
++      focusedItem->GetLayout()->AssignDepth();
++  }
++}
++
+ void CGUIBaseContainer::UpdateListProvider(bool forceRefresh /* = false */)
+ {
+   if (m_listProvider)
+diff --git a/xbmc/guilib/GUIBaseContainer.h b/xbmc/guilib/GUIBaseContainer.h
+index 2ca35f00266fe..f5a813beaee1b 100644
+--- a/xbmc/guilib/GUIBaseContainer.h
++++ b/xbmc/guilib/GUIBaseContainer.h
+@@ -50,6 +50,7 @@ class CGUIBaseContainer : public IGUIContainer
+   void AllocResources() override;
+   void FreeResources(bool immediately = false) override;
+   void UpdateVisibility(const CGUIListItem *item = NULL) override;
++  void AssignDepth() override;
+ 
+   virtual unsigned int GetRows() const;
+ 
+@@ -233,6 +234,14 @@ class CGUIBaseContainer : public IGUIContainer
+   // early inertial scroll cancellation
+   bool m_waitForScrollEnd = false;
+   float m_lastScrollValue = 0.0f;
++
++  struct RENDERITEM
++  {
++    float posX;
++    float posY;
++    CGUIListItemPtr item;
++    bool focused;
++  };
+ };
+ 
+ 
+diff --git a/xbmc/guilib/GUIBorderedImage.cpp b/xbmc/guilib/GUIBorderedImage.cpp
+index 7c48ddb9e1567..1215e627c4869 100644
+--- a/xbmc/guilib/GUIBorderedImage.cpp
++++ b/xbmc/guilib/GUIBorderedImage.cpp
+@@ -57,7 +57,7 @@ void CGUIBorderedImage::Process(unsigned int currentTime, CDirtyRegionList &dirt
+ void CGUIBorderedImage::Render()
+ {
+   if (!m_borderImage->GetFileName().empty() && m_texture->ReadyToRender())
+-    m_borderImage->Render();
++    m_borderImage->Render(-1);
+   CGUIImage::Render();
+ }
+ 
+diff --git a/xbmc/guilib/GUIButtonControl.cpp b/xbmc/guilib/GUIButtonControl.cpp
+index 0e7f757edcb2f..90a88485a2975 100644
+--- a/xbmc/guilib/GUIButtonControl.cpp
++++ b/xbmc/guilib/GUIButtonControl.cpp
+@@ -106,7 +106,7 @@ void CGUIButtonControl::Process(unsigned int currentTime, CDirtyRegionList &dirt
+ 
+ void CGUIButtonControl::Render()
+ {
+-  m_imgFocus->Render();
++  m_imgFocus->Render(-1);
+   m_imgNoFocus->Render();
+ 
+   RenderText();
+@@ -115,6 +115,9 @@ void CGUIButtonControl::Render()
+ 
+ void CGUIButtonControl::RenderText()
+ {
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_FRONT_TO_BACK)
++    return;
+   m_label.Render();
+   m_label2.Render();
+ }
+diff --git a/xbmc/guilib/GUIControl.cpp b/xbmc/guilib/GUIControl.cpp
+index bd404757a79fd..988281f75bc8c 100644
+--- a/xbmc/guilib/GUIControl.cpp
++++ b/xbmc/guilib/GUIControl.cpp
+@@ -481,6 +481,11 @@ float CGUIControl::GetHeight() const
+   return m_height;
+ }
+ 
++void CGUIControl::AssignDepth()
++{
++  m_cachedTransform.depth = CServiceBroker::GetWinSystem()->GetGfxContext().GetDepth();
++}
++
+ void CGUIControl::MarkDirtyRegion(const unsigned int dirtyState)
+ {
+   // if the control is culled, bail
+diff --git a/xbmc/guilib/GUIControl.h b/xbmc/guilib/GUIControl.h
+index 49fadaa9eb5fd..3dc5cc863e29c 100644
+--- a/xbmc/guilib/GUIControl.h
++++ b/xbmc/guilib/GUIControl.h
+@@ -176,6 +176,7 @@ class CGUIControl
+   virtual float GetYPosition() const;
+   virtual float GetWidth() const;
+   virtual float GetHeight() const;
++  virtual void AssignDepth();
+ 
+   void MarkDirtyRegion(const unsigned int dirtyState = DIRTY_STATE_CONTROL);
+   bool IsControlDirty() const { return m_controlDirtyState != 0; }
+diff --git a/xbmc/guilib/GUIControlGroup.cpp b/xbmc/guilib/GUIControlGroup.cpp
+index f737f9fef3cc0..3e64cea5fabb9 100644
+--- a/xbmc/guilib/GUIControlGroup.cpp
++++ b/xbmc/guilib/GUIControlGroup.cpp
+@@ -105,12 +105,26 @@ void CGUIControlGroup::Render()
+   CPoint pos(GetPosition());
+   CServiceBroker::GetWinSystem()->GetGfxContext().SetOrigin(pos.x, pos.y);
+   CGUIControl *focusedControl = NULL;
+-  for (auto *control : m_children)
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_FRONT_TO_BACK)
+   {
+-    if (m_renderFocusedLast && control->HasFocus())
+-      focusedControl = control;
+-    else
+-      control->DoRender();
++    for (auto it = m_children.rbegin(); it != m_children.rend(); ++it)
++    {
++      if (m_renderFocusedLast && (*it)->HasFocus())
++        focusedControl = (*it);
++      else
++        (*it)->DoRender();
++    }
++  }
++  else
++  {
++    for (auto* control : m_children)
++    {
++      if (m_renderFocusedLast && control->HasFocus())
++        focusedControl = control;
++      else
++        control->DoRender();
++    }
+   }
+   if (focusedControl)
+     focusedControl->DoRender();
+@@ -284,6 +298,17 @@ bool CGUIControlGroup::CanFocus() const
+   return false;
+ }
+ 
++void CGUIControlGroup::AssignDepth()
++{
++  if (m_children.size())
++  {
++    for (auto* control : m_children)
++    {
++      control->AssignDepth();
++    }
++  }
++}
++
+ void CGUIControlGroup::SetInitialVisibility()
+ {
+   CGUIControl::SetInitialVisibility();
+diff --git a/xbmc/guilib/GUIControlGroup.h b/xbmc/guilib/GUIControlGroup.h
+index 5f4a7613741d1..d1151d0022f6b 100644
+--- a/xbmc/guilib/GUIControlGroup.h
++++ b/xbmc/guilib/GUIControlGroup.h
+@@ -41,6 +41,7 @@ class CGUIControlGroup : public CGUIControlLookup
+   void FreeResources(bool immediately = false) override;
+   void DynamicResourceAlloc(bool bOnOff) override;
+   bool CanFocus() const override;
++  void AssignDepth() override;
+ 
+   EVENT_RESULT SendMouseEvent(const CPoint &point, const CMouseEvent &event) override;
+   void UnfocusFromPoint(const CPoint &point) override;
+diff --git a/xbmc/guilib/GUIEditControl.cpp b/xbmc/guilib/GUIEditControl.cpp
+index 325a703152b9f..87dc71ca72f9f 100644
+--- a/xbmc/guilib/GUIEditControl.cpp
++++ b/xbmc/guilib/GUIEditControl.cpp
+@@ -492,6 +492,9 @@ void CGUIEditControl::ProcessText(unsigned int currentTime)
+ 
+ void CGUIEditControl::RenderText()
+ {
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_FRONT_TO_BACK)
++    return;
+   m_label.Render();
+ 
+   if (CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_clipRect.x1, m_clipRect.y1, m_clipRect.Width(), m_clipRect.Height()))
+diff --git a/xbmc/guilib/GUIFadeLabelControl.cpp b/xbmc/guilib/GUIFadeLabelControl.cpp
+index 5855f3c4381b3..77cc8eabae90e 100644
+--- a/xbmc/guilib/GUIFadeLabelControl.cpp
++++ b/xbmc/guilib/GUIFadeLabelControl.cpp
+@@ -170,6 +170,9 @@ bool CGUIFadeLabelControl::UpdateColors(const CGUIListItem* item)
+ 
+ void CGUIFadeLabelControl::Render()
+ {
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_FRONT_TO_BACK)
++    return;
+   if (!m_label.font)
+   { // nothing to render
+     CGUIControl::Render();
+diff --git a/xbmc/guilib/GUIFontTTFGL.cpp b/xbmc/guilib/GUIFontTTFGL.cpp
+index 12889c9b1dad1..d45f231408760 100644
+--- a/xbmc/guilib/GUIFontTTFGL.cpp
++++ b/xbmc/guilib/GUIFontTTFGL.cpp
+@@ -127,6 +127,7 @@ void CGUIFontTTFGL::LastEnd()
+   GLint colLoc = renderSystem->ShaderGetCol();
+   GLint tex0Loc = renderSystem->ShaderGetCoord0();
+   GLint modelLoc = renderSystem->ShaderGetModel();
++  GLint depthLoc = renderSystem->ShaderGetDepth();
+ 
+   CreateStaticVertexBuffers();
+ 
+@@ -208,6 +209,10 @@ void CGUIFontTTFGL::LastEnd()
+                                        m_vertexTrans[i].m_translateZ);
+       glUniformMatrix4fv(modelLoc, 1, GL_FALSE, glMatrixModview.Get());
+ 
++      // Apply the depth value of the layer
++      float depth = CServiceBroker::GetWinSystem()->GetGfxContext().GetTransformDepth();
++      glUniform1f(depthLoc, depth);
++
+       // Bind the buffer to the OpenGL context's GL_ARRAY_BUFFER binding point
+       glBindBuffer(GL_ARRAY_BUFFER, m_vertexTrans[i].m_vertexBuffer->bufferHandle);
+ 
+diff --git a/xbmc/guilib/GUILabelControl.cpp b/xbmc/guilib/GUILabelControl.cpp
+index 9728639b1369d..5f57fbc3a64b4 100644
+--- a/xbmc/guilib/GUILabelControl.cpp
++++ b/xbmc/guilib/GUILabelControl.cpp
+@@ -139,6 +139,9 @@ CRect CGUILabelControl::CalcRenderRegion() const
+ 
+ void CGUILabelControl::Render()
+ {
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_FRONT_TO_BACK)
++    return;
+   m_label.Render();
+   CGUIControl::Render();
+ }
+diff --git a/xbmc/guilib/GUIListItemLayout.cpp b/xbmc/guilib/GUIListItemLayout.cpp
+index 3b0f774d3d54b..35ff8ac4624ee 100644
+--- a/xbmc/guilib/GUIListItemLayout.cpp
++++ b/xbmc/guilib/GUIListItemLayout.cpp
+@@ -237,6 +237,11 @@ void CGUIListItemLayout::FreeResources(bool immediately)
+   m_group.FreeResources(immediately);
+ }
+ 
++void CGUIListItemLayout::AssignDepth()
++{
++  m_group.AssignDepth();
++}
++
+ #ifdef _DEBUG
+ void CGUIListItemLayout::DumpTextureUse()
+ {
+diff --git a/xbmc/guilib/GUIListItemLayout.h b/xbmc/guilib/GUIListItemLayout.h
+index 69d4c4fa6383b..7ba75794dd4b5 100644
+--- a/xbmc/guilib/GUIListItemLayout.h
++++ b/xbmc/guilib/GUIListItemLayout.h
+@@ -34,6 +34,7 @@ class CGUIListItemLayout final
+   void SetInvalid() { m_invalidated = true; }
+   void FreeResources(bool immediately = false);
+   void SetParentControl(CGUIControl* control) { m_group.SetParentControl(control); }
++  void AssignDepth();
+ 
+   //#ifdef GUILIB_PYTHON_COMPATIBILITY
+   void CreateListControlLayouts(float width, float height, bool focused, const CLabelInfo &labelInfo, const CLabelInfo &labelInfo2, const CTextureInfo &texture, const CTextureInfo &textureFocus, float texHeight, float iconWidth, float iconHeight, const std::string &nofocusCondition, const std::string &focusCondition);
+diff --git a/xbmc/guilib/GUIListLabel.cpp b/xbmc/guilib/GUIListLabel.cpp
+index b3138eb7aaacb..6797ba99dc963 100644
+--- a/xbmc/guilib/GUIListLabel.cpp
++++ b/xbmc/guilib/GUIListLabel.cpp
+@@ -67,6 +67,9 @@ void CGUIListLabel::Process(unsigned int currentTime, CDirtyRegionList &dirtyreg
+ 
+ void CGUIListLabel::Render()
+ {
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_FRONT_TO_BACK)
++    return;
+   m_label.Render();
+   CGUIControl::Render();
+ }
+diff --git a/xbmc/guilib/GUISettingsSliderControl.cpp b/xbmc/guilib/GUISettingsSliderControl.cpp
+index 7c275abbe01e5..6431839798ebc 100644
+--- a/xbmc/guilib/GUISettingsSliderControl.cpp
++++ b/xbmc/guilib/GUISettingsSliderControl.cpp
+@@ -48,6 +48,9 @@ void CGUISettingsSliderControl::Render()
+ {
+   m_buttonControl.Render();
+   CGUISliderControl::Render();
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_FRONT_TO_BACK)
++    return;
+   m_label.Render();
+ }
+ 
+diff --git a/xbmc/guilib/GUISpinControl.cpp b/xbmc/guilib/GUISpinControl.cpp
+index f0a0f3980b0f4..80df5e8370647 100644
+--- a/xbmc/guilib/GUISpinControl.cpp
++++ b/xbmc/guilib/GUISpinControl.cpp
+@@ -551,6 +551,9 @@ void CGUISpinControl::Render()
+ 
+ void CGUISpinControl::RenderText(float posX, float posY, float width, float height)
+ {
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_FRONT_TO_BACK)
++    return;
+   m_label.SetMaxRect(posX, posY, width, height);
+   m_label.SetColor(GetTextColor());
+   m_label.Render();
+diff --git a/xbmc/guilib/GUITextBox.cpp b/xbmc/guilib/GUITextBox.cpp
+index dcfbb8e109245..0be300e91129e 100644
+--- a/xbmc/guilib/GUITextBox.cpp
++++ b/xbmc/guilib/GUITextBox.cpp
+@@ -197,6 +197,10 @@ void CGUITextBox::Process(unsigned int currentTime, CDirtyRegionList &dirtyregio
+ 
+ void CGUITextBox::Render()
+ {
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_FRONT_TO_BACK)
++    return;
++
+   // render the repeat anim as appropriate
+   if (m_autoScrollRepeatAnim)
+     CServiceBroker::GetWinSystem()->GetGfxContext().SetTransform(m_cachedTextMatrix);
+@@ -387,6 +391,12 @@ void CGUITextBox::ResetAutoScrolling()
+     m_autoScrollRepeatAnim->ResetAnimation();
+ }
+ 
++void CGUITextBox::AssignDepth()
++{
++  CGUIControl::AssignDepth();
++  m_cachedTextMatrix.depth = m_cachedTransform.depth;
++}
++
+ unsigned int CGUITextBox::GetRows() const
+ {
+   return m_lines.size();
+diff --git a/xbmc/guilib/GUITextBox.h b/xbmc/guilib/GUITextBox.h
+index 7027731c31df0..23c6fc11e3ffc 100644
+--- a/xbmc/guilib/GUITextBox.h
++++ b/xbmc/guilib/GUITextBox.h
+@@ -49,6 +49,7 @@ class CGUITextBox : public CGUIControl, public CGUITextLayout
+   void SetAutoScrolling(const TiXmlNode *node);
+   void SetAutoScrolling(int delay, int time, int repeatTime, const std::string &condition = "");
+   void ResetAutoScrolling();
++  void AssignDepth() override;
+ 
+   bool GetCondition(int condition, int data) const override;
+   virtual std::string GetLabel(int info) const;
+diff --git a/xbmc/guilib/GUITexture.cpp b/xbmc/guilib/GUITexture.cpp
+index 7f2f51dbbc694..769a43052f2ed 100644
+--- a/xbmc/guilib/GUITexture.cpp
++++ b/xbmc/guilib/GUITexture.cpp
+@@ -9,6 +9,7 @@
+ #include "GUITexture.h"
+ 
+ #include "GUILargeTextureManager.h"
++#include "Texture.h"
+ #include "TextureManager.h"
+ #include "utils/MathUtils.h"
+ #include "utils/StringUtils.h"
+@@ -163,18 +164,11 @@ bool CGUITexture::Process(unsigned int currentTime)
+   return changed;
+ }
+ 
+-void CGUITexture::Render()
++void CGUITexture::Render(int32_t depthOffset)
+ {
+   if (!m_visible || !m_texture.size())
+     return;
+ 
+-  // see if we need to clip the image
+-  if (m_vertex.Width() > m_width || m_vertex.Height() > m_height)
+-  {
+-    if (!CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_posX, m_posY, m_width, m_height))
+-      return;
+-  }
+-
+   // set our draw color
+   #define MIX_ALPHA(a,c) (((a * (c >> 24)) / 255) << 24) | (c & 0x00ffffff)
+ 
+@@ -186,6 +180,28 @@ void CGUITexture::Render()
+ 
+   color = CServiceBroker::GetWinSystem()->GetGfxContext().MergeColor(color);
+ 
++  m_depth = CServiceBroker::GetWinSystem()->GetGfxContext().GetTransformDepth(depthOffset);
++
++  bool hasAlpha =
++      (((color >> 24) & 0xFF) != 0xFF || m_texture.m_textures[m_currentFrame]->HasAlpha());
++  if (m_diffuse.size())
++          hasAlpha |= m_diffuse.m_textures[0]->HasAlpha();
++
++  // bail if it is not the appropriate render pass
++  RENDER_ORDER renderOrder = CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder();
++  if (hasAlpha && renderOrder == RENDER_ORDER_FRONT_TO_BACK)
++          return;
++  if (!hasAlpha && renderOrder == RENDER_ORDER_BACK_TO_FRONT)
++          return;
++
++  // see if we need to clip the image
++  if (m_vertex.Width() > m_width || m_vertex.Height() > m_height)
++  {
++          if (!CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_posX, m_posY,
++                                                                             m_width, m_height))
++      return;
++  }
++
+   // setup our renderer
+   Begin(color);
+ 
+diff --git a/xbmc/guilib/GUITexture.h b/xbmc/guilib/GUITexture.h
+index e530233b70338..e9ed4f2f84211 100644
+--- a/xbmc/guilib/GUITexture.h
++++ b/xbmc/guilib/GUITexture.h
+@@ -88,7 +88,7 @@ class CGUITexture
+                        const CRect* texCoords = nullptr);
+ 
+   bool Process(unsigned int currentTime);
+-  void Render();
++  void Render(int32_t depthOffset = 0);
+ 
+   void DynamicResourceAlloc(bool bOnOff);
+   bool AllocResources();
+@@ -173,6 +173,7 @@ class CGUITexture
+   float m_posY;
+   float m_width;
+   float m_height;
++  float m_depth{0};
+ 
+   CRect m_vertex;       // vertex coords to render
+   bool m_invalid;       // if true, we need to recalculate
+diff --git a/xbmc/guilib/GUITextureGL.cpp b/xbmc/guilib/GUITextureGL.cpp
+index 6e46aa700a4c9..4578bcee1138d 100644
+--- a/xbmc/guilib/GUITextureGL.cpp
++++ b/xbmc/guilib/GUITextureGL.cpp
+@@ -108,6 +108,7 @@ void CGUITextureGL::End()
+     GLint tex0Loc = m_renderSystem->ShaderGetCoord0();
+     GLint tex1Loc = m_renderSystem->ShaderGetCoord1();
+     GLint uniColLoc = m_renderSystem->ShaderGetUniCol();
++    GLint depthLoc = m_renderSystem->ShaderGetDepth();
+ 
+     GLuint VertexVBO;
+     GLuint IndexVBO;
+@@ -116,6 +117,8 @@ void CGUITextureGL::End()
+     glBindBuffer(GL_ARRAY_BUFFER, VertexVBO);
+     glBufferData(GL_ARRAY_BUFFER, sizeof(PackedVertex)*m_packedVertices.size(), &m_packedVertices[0], GL_STATIC_DRAW);
+ 
++    glUniform1f(depthLoc, m_depth);
++
+     if (uniColLoc >= 0)
+     {
+       glUniform4f(uniColLoc,(m_col[0] / 255.0f), (m_col[1] / 255.0f), (m_col[2] / 255.0f), (m_col[3] / 255.0f));
+diff --git a/xbmc/guilib/GUITextureGLES.cpp b/xbmc/guilib/GUITextureGLES.cpp
+index d92201ae7fcce..66a255404070e 100644
+--- a/xbmc/guilib/GUITextureGLES.cpp
++++ b/xbmc/guilib/GUITextureGLES.cpp
+@@ -114,12 +114,15 @@ void CGUITextureGLES::End()
+     GLint tex0Loc = m_renderSystem->GUIShaderGetCoord0();
+     GLint tex1Loc = m_renderSystem->GUIShaderGetCoord1();
+     GLint uniColLoc = m_renderSystem->GUIShaderGetUniCol();
++    GLint depthLoc = m_renderSystem->ShaderGetDepth();
+ 
+     if(uniColLoc >= 0)
+     {
+       glUniform4f(uniColLoc,(m_col[0] / 255.0f), (m_col[1] / 255.0f), (m_col[2] / 255.0f), (m_col[3] / 255.0f));
+     }
+ 
++    glUniform1f(depthLoc, m_depth);
++
+     if(m_diffuse.size())
+     {
+       glVertexAttribPointer(tex1Loc, 2, GL_FLOAT, 0, sizeof(PackedVertex), (char*)&m_packedVertices[0] + offsetof(PackedVertex, u2));
+diff --git a/xbmc/guilib/GUIVideoControl.cpp b/xbmc/guilib/GUIVideoControl.cpp
+index 91a949f9fafae..cf1e711609082 100644
+--- a/xbmc/guilib/GUIVideoControl.cpp
++++ b/xbmc/guilib/GUIVideoControl.cpp
+@@ -38,6 +38,9 @@ void CGUIVideoControl::Process(unsigned int currentTime, CDirtyRegionList &dirty
+ 
+ void CGUIVideoControl::Render()
+ {
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_FRONT_TO_BACK)
++    return;
+   auto& components = CServiceBroker::GetAppComponents();
+   const auto appPlayer = components.GetComponent<CApplicationPlayer>();
+   if (appPlayer->IsRenderingVideo())
+diff --git a/xbmc/guilib/GUIWindow.cpp b/xbmc/guilib/GUIWindow.cpp
+index a7aa0feb0c29e..0aedf7329ed8d 100644
+--- a/xbmc/guilib/GUIWindow.cpp
++++ b/xbmc/guilib/GUIWindow.cpp
+@@ -1069,6 +1069,8 @@ void CGUIWindow::ClearBackground()
+   UTILS::COLOR::Color color = m_clearBackground;
+   if (color)
+     CServiceBroker::GetWinSystem()->GetGfxContext().Clear(color);
++  else
++    CServiceBroker::GetWinSystem()->GetGfxContext().Clear();
+ }
+ 
+ void CGUIWindow::SetID(int id)
+diff --git a/xbmc/guilib/GUIWindowManager.cpp b/xbmc/guilib/GUIWindowManager.cpp
+index f15489e00e07f..1c75f362e4147 100644
+--- a/xbmc/guilib/GUIWindowManager.cpp
++++ b/xbmc/guilib/GUIWindowManager.cpp
+@@ -1213,6 +1213,19 @@ void CGUIWindowManager::Process(unsigned int currentTime)
+       pWindow->DoProcess(currentTime, m_dirtyregions);
+   }
+ 
++  // assign depth values to all active controls
++  if (pWindow)
++    pWindow->AssignDepth();
++
++  std::vector<CGUIWindow*> activeDialogs = m_activeDialogs;
++  stable_sort(activeDialogs.begin(), activeDialogs.end(), RenderOrderSortFunction);
++
++  for (const auto& window : activeDialogs)
++  {
++    if (window->IsDialogRunning())
++      window->AssignDepth();
++  }
++
+   for (auto& itr : m_dirtyregions)
+     m_tracker.MarkDirtyRegion(itr);
+ }
+@@ -1238,6 +1251,14 @@ void CGUIWindowManager::MarkDirty(const CRect& rect)
+ }
+ 
+ void CGUIWindowManager::RenderPass() const
++{
++  if (CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiFrontToBackRendering)
++    RenderPassDual();
++  else
++    RenderPassSingle();
++}
++
++void CGUIWindowManager::RenderPassSingle() const
+ {
+   CGUIWindow* pWindow = GetWindow(GetActiveWindow());
+   if (pWindow)
+@@ -1257,6 +1278,40 @@ void CGUIWindowManager::RenderPass() const
+   }
+ }
+ 
++void CGUIWindowManager::RenderPassDual() const
++{
++  CGUIWindow* pWindow = GetWindow(GetActiveWindow());
++  if (pWindow)
++    pWindow->ClearBackground();
++
++  std::vector<CGUIWindow*> renderList = m_activeDialogs;
++  stable_sort(renderList.begin(), renderList.end(), RenderOrderSortFunction);
++
++  // first the opaque pass, rendering from front to back
++  CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderOrder(RENDER_ORDER_FRONT_TO_BACK);
++  for (auto it = renderList.rbegin(); it != renderList.rend(); ++it)
++  {
++    if ((*it)->IsDialogRunning())
++      (*it)->DoRender();
++  }
++
++  if (pWindow)
++    pWindow->DoRender();
++
++  // now we render all elements with transparency back to front
++  CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderOrder(RENDER_ORDER_BACK_TO_FRONT);
++  if (pWindow)
++  {
++    pWindow->DoRender();
++  }
++
++  for (const auto& window : renderList)
++  {
++    if (window->IsDialogRunning())
++      window->DoRender();
++  }
++}
++
+ void CGUIWindowManager::RenderEx() const
+ {
+   CGUIWindow* pWindow = GetWindow(GetActiveWindow());
+@@ -1326,6 +1381,7 @@ bool CGUIWindowManager::Render()
+ 
+ void CGUIWindowManager::AfterRender()
+ {
++  CServiceBroker::GetWinSystem()->GetGfxContext().ResetDepth();
+   m_tracker.CleanMarkedRegions();
+ 
+   CGUIWindow* pWindow = GetWindow(GetActiveWindow());
+diff --git a/xbmc/guilib/GUIWindowManager.h b/xbmc/guilib/GUIWindowManager.h
+index 9bbd281713f00..b39fbe3ff3294 100644
+--- a/xbmc/guilib/GUIWindowManager.h
++++ b/xbmc/guilib/GUIWindowManager.h
+@@ -231,6 +231,8 @@ class CGUIWindowManager : public KODI::MESSAGING::IMessageTarget
+ #endif
+ private:
+   void RenderPass() const;
++  void RenderPassSingle() const;
++  void RenderPassDual() const;
+ 
+   void LoadNotOnDemandWindows();
+   void UnloadNotOnDemandWindows();
+diff --git a/xbmc/rendering/RenderSystem.cpp b/xbmc/rendering/RenderSystem.cpp
+index 3f10562e7b57a..bcfb19a85e55f 100644
+--- a/xbmc/rendering/RenderSystem.cpp
++++ b/xbmc/rendering/RenderSystem.cpp
+@@ -14,6 +14,7 @@
+ #include "guilib/GUILabelControl.h"
+ #include "settings/AdvancedSettings.h"
+ #include "settings/SettingsComponent.h"
++#include "utils/log.h"
+ 
+ CRenderSystemBase::CRenderSystemBase()
+ {
+@@ -68,7 +69,7 @@ void CRenderSystemBase::ShowSplash(const std::string& message)
+   }
+ 
+   CServiceBroker::GetWinSystem()->GetGfxContext().lock();
+-  CServiceBroker::GetWinSystem()->GetGfxContext().Clear();
++  CServiceBroker::GetWinSystem()->GetGfxContext().Clear(0);
+ 
+   RESOLUTION_INFO res = CServiceBroker::GetWinSystem()->GetGfxContext().GetResInfo();
+   CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderingResolution(res, true);
+@@ -108,3 +109,22 @@ void CRenderSystemBase::ShowSplash(const std::string& message)
+   CServiceBroker::GetWinSystem()->GetGfxContext().Flip(true, false);
+ }
+ 
++void CRenderSystemBase::MatchGPUArchitecture()
++{
++  std::vector<std::string> manufactures{
++      "Arm", "ARM", "Mali", "MALI", "Broadcom", "BROADCOM", "VC4", "VC6",
++  };
++
++  for (const auto& manufacturer : manufactures)
++  {
++    if ((m_RenderVendor.find(manufacturer) != std::string::npos) ||
++        (m_RenderRenderer.find(manufacturer) != std::string::npos))
++    {
++      CLog::Log(LOGINFO, "Tile-Based Rendering GPU detected");
++      m_isTileBasedGPU = true;
++      return;
++    }
++  }
++
++  CLog::Log(LOGINFO, "Immediate Rendering GPU detected");
++}
+diff --git a/xbmc/rendering/RenderSystem.h b/xbmc/rendering/RenderSystem.h
+index 0c3d6e099fe34..d0cb41399d33f 100644
+--- a/xbmc/rendering/RenderSystem.h
++++ b/xbmc/rendering/RenderSystem.h
+@@ -21,6 +21,13 @@
+  *   This interface is very basic since a lot of the actual details will go in to the derived classes
+  */
+ 
++enum DEPTH_CULLING
++{
++  DEPTH_CULLING_OFF = 0,
++  DEPTH_CULLING_BACK_TO_FRONT,
++  DEPTH_CULLING_FRONT_TO_BACK,
++};
++
+ class CGUIImage;
+ class CGUITextLayout;
+ 
+@@ -37,7 +44,9 @@ class CRenderSystemBase
+   virtual bool BeginRender() = 0;
+   virtual bool EndRender() = 0;
+   virtual void PresentRender(bool rendered, bool videoLayer) = 0;
+-  virtual bool ClearBuffers(UTILS::COLOR::Color color) = 0;
++  virtual bool ClearBuffers(UTILS::COLOR::Color color,
++                            bool forceClearColor = true,
++                            bool forceClearDepth = true) = 0;
+   virtual bool IsExtSupported(const char* extension) const = 0;
+ 
+   virtual void SetViewPort(const CRect& viewPort) = 0;
+@@ -49,6 +58,8 @@ class CRenderSystemBase
+   virtual void SetScissors(const CRect &rect) = 0;
+   virtual void ResetScissors() = 0;
+ 
++  virtual void SetDepthCulling(DEPTH_CULLING culling) {}
++
+   virtual void CaptureStateBlock() = 0;
+   virtual void ApplyStateBlock() = 0;
+ 
+@@ -74,10 +85,13 @@ class CRenderSystemBase
+   virtual bool SupportsStereo(RENDER_STEREO_MODE mode) const;
+   unsigned int GetMaxTextureSize() const { return m_maxTextureSize; }
+   unsigned int GetMinDXTPitch() const { return m_minDXTPitch; }
++  bool IsTileBasedGPU() const { return m_isTileBasedGPU; }
+ 
+   virtual void ShowSplash(const std::string& message);
+ 
+ protected:
++  void MatchGPUArchitecture();
++
+   bool                m_bRenderCreated;
+   bool                m_bVSync;
+   unsigned int        m_maxTextureSize;
+@@ -88,6 +102,7 @@ class CRenderSystemBase
+   std::string   m_RenderVersion;
+   int          m_RenderVersionMinor;
+   int          m_RenderVersionMajor;
++  bool m_isTileBasedGPU{false};
+   RENDER_STEREO_VIEW m_stereoView = RENDER_STEREO_VIEW_OFF;
+   RENDER_STEREO_MODE m_stereoMode = RENDER_STEREO_MODE_OFF;
+   bool m_limitedColorRange = false;
+diff --git a/xbmc/rendering/dx/RenderSystemDX.cpp b/xbmc/rendering/dx/RenderSystemDX.cpp
+index cb1b0d5fcb8f8..6726fe1cc2b4f 100644
+--- a/xbmc/rendering/dx/RenderSystemDX.cpp
++++ b/xbmc/rendering/dx/RenderSystemDX.cpp
+@@ -328,11 +328,16 @@ bool CRenderSystemDX::EndRender()
+   return true;
+ }
+ 
+-bool CRenderSystemDX::ClearBuffers(UTILS::COLOR::Color color)
++bool CRenderSystemDX::ClearBuffers(UTILS::COLOR::Color color,
++                                   bool forceClearColor,
++                                   bool forceClearDepth)
+ {
+   if (!m_bRenderCreated)
+     return false;
+ 
++  if (!forceClearColor)
++    return true;
++
+   float fColor[4];
+   CD3DHelper::XMStoreColor(fColor, color);
+   ID3D11RenderTargetView* pRTView = m_deviceResources->GetBackBuffer().GetRenderTarget();
+diff --git a/xbmc/rendering/dx/RenderSystemDX.h b/xbmc/rendering/dx/RenderSystemDX.h
+index 9a18e220454ce..1d246c54f56eb 100644
+--- a/xbmc/rendering/dx/RenderSystemDX.h
++++ b/xbmc/rendering/dx/RenderSystemDX.h
+@@ -34,7 +34,7 @@ class CRenderSystemDX : public CRenderSystemBase, DX::IDeviceNotify
+   bool BeginRender() override;
+   bool EndRender() override;
+   void PresentRender(bool rendered, bool videoLayer) override;
+-  bool ClearBuffers(UTILS::COLOR::Color color) override;
++  bool ClearBuffers(UTILS::COLOR::Color color, bool forceClearColor, bool forceClearDepth) override;
+   void SetViewPort(const CRect& viewPort) override;
+   void GetViewPort(CRect& viewPort) override;
+   void RestoreViewPort() override;
+diff --git a/xbmc/rendering/gl/GLShader.cpp b/xbmc/rendering/gl/GLShader.cpp
+index e91af97b562c4..5b2e455437833 100644
+--- a/xbmc/rendering/gl/GLShader.cpp
++++ b/xbmc/rendering/gl/GLShader.cpp
+@@ -49,6 +49,7 @@ void CGLShader::OnCompiledAndLinked()
+   // Variables passed directly to the Vertex shader
+   m_hProj = glGetUniformLocation(ProgramHandle(), "m_proj");
+   m_hModel = glGetUniformLocation(ProgramHandle(), "m_model");
++  m_hDepth = glGetUniformLocation(ProgramHandle(), "m_depth");
+ 
+   // Vertex attributes
+   m_hPos = glGetAttribLocation(ProgramHandle(),  "m_attrpos");
+diff --git a/xbmc/rendering/gl/GLShader.h b/xbmc/rendering/gl/GLShader.h
+index d5b82f3a075b7..4dd7d9fcc0b06 100644
+--- a/xbmc/rendering/gl/GLShader.h
++++ b/xbmc/rendering/gl/GLShader.h
+@@ -25,6 +25,7 @@ class CGLShader : public Shaders::CGLSLShaderProgram
+   GLint GetColLoc() {return m_hCol;}
+   GLint GetCord0Loc() {return m_hCord0;}
+   GLint GetCord1Loc() {return m_hCord1;}
++  GLint GetDepthLoc() { return m_hDepth; }
+   GLint GetUniColLoc() {return m_hUniCol;}
+   GLint GetModelLoc() {return m_hModel; }
+   bool HardwareClipIsPossible() {return m_clipPossible; }
+@@ -43,6 +44,7 @@ class CGLShader : public Shaders::CGLSLShaderProgram
+   GLint m_hCol = 0;
+   GLint m_hCord0 = 0;
+   GLint m_hCord1 = 0;
++  GLint m_hDepth = 0;
+ 
+   const GLfloat *m_proj = nullptr;
+   const GLfloat *m_model = nullptr;
+diff --git a/xbmc/rendering/gl/RenderSystemGL.cpp b/xbmc/rendering/gl/RenderSystemGL.cpp
+index 4b80014d41386..1af38ab2e2914 100644
+--- a/xbmc/rendering/gl/RenderSystemGL.cpp
++++ b/xbmc/rendering/gl/RenderSystemGL.cpp
+@@ -130,6 +130,8 @@ bool CRenderSystemGL::InitRenderSystem()
+   if (tmpRenderer != NULL)
+     m_RenderRenderer = tmpRenderer;
+ 
++  MatchGPUArchitecture();
++
+   m_bRenderCreated = true;
+ 
+   if (m_RenderVersionMajor > 3 ||
+@@ -266,7 +268,9 @@ bool CRenderSystemGL::EndRender()
+   return true;
+ }
+ 
+-bool CRenderSystemGL::ClearBuffers(UTILS::COLOR::Color color)
++bool CRenderSystemGL::ClearBuffers(UTILS::COLOR::Color color,
++                                   bool forceClearColor,
++                                   bool forceClearDepth)
+ {
+   if (!m_bRenderCreated)
+     return false;
+@@ -275,14 +279,27 @@ bool CRenderSystemGL::ClearBuffers(UTILS::COLOR::Color color)
+   if(m_stereoMode == RENDER_STEREO_MODE_INTERLACED && m_stereoView == RENDER_STEREO_VIEW_RIGHT)
+     return true;
+ 
+-  float r = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::R, color) / 255.0f;
+-  float g = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::G, color) / 255.0f;
+-  float b = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::B, color) / 255.0f;
+-  float a = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::A, color) / 255.0f;
++  GLbitfield flags = 0;
++
++  if (forceClearColor || m_isTileBasedGPU)
++  {
++    float r = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::R, color) / 255.0f;
++    float g = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::G, color) / 255.0f;
++    float b = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::B, color) / 255.0f;
++    float a = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::A, color) / 255.0f;
++
++    glClearColor(r, g, b, a);
+ 
+-  glClearColor(r, g, b, a);
++    flags = GL_COLOR_BUFFER_BIT;
++  }
++
++  if (forceClearDepth)
++  {
++    flags |= GL_DEPTH_BUFFER_BIT;
++    glClearDepthf(0);
++    glDepthMask(true);
++  };
+ 
+-  GLbitfield flags = GL_COLOR_BUFFER_BIT;
+   glClear(flags);
+ 
+   return true;
+@@ -505,6 +522,27 @@ void CRenderSystemGL::ResetScissors()
+   SetScissors(CRect(0, 0, (float)m_width, (float)m_height));
+ }
+ 
++void CRenderSystemGL::SetDepthCulling(DEPTH_CULLING culling)
++{
++  if (culling == DEPTH_CULLING_OFF)
++  {
++    glDisable(GL_DEPTH_TEST);
++    glDepthMask(GL_FALSE);
++  }
++  else if (culling == DEPTH_CULLING_BACK_TO_FRONT)
++  {
++    glEnable(GL_DEPTH_TEST);
++    glDepthMask(GL_FALSE);
++    glDepthFunc(GL_GEQUAL);
++  }
++  else if (culling == DEPTH_CULLING_FRONT_TO_BACK)
++  {
++    glEnable(GL_DEPTH_TEST);
++    glDepthMask(GL_TRUE);
++    glDepthFunc(GL_GREATER);
++  }
++}
++
+ void CRenderSystemGL::GetGLSLVersion(int& major, int& minor)
+ {
+   major = m_glslMajor;
+@@ -795,6 +833,14 @@ GLint CRenderSystemGL::ShaderGetCoord1()
+   return -1;
+ }
+ 
++GLint CRenderSystemGL::ShaderGetDepth()
++{
++  if (m_pShader[m_method])
++    return m_pShader[m_method]->GetDepthLoc();
++
++  return -1;
++}
++
+ GLint CRenderSystemGL::ShaderGetUniCol()
+ {
+   if (m_pShader[m_method])
+diff --git a/xbmc/rendering/gl/RenderSystemGL.h b/xbmc/rendering/gl/RenderSystemGL.h
+index 191c97ff961fc..d4a6cff401c4c 100644
+--- a/xbmc/rendering/gl/RenderSystemGL.h
++++ b/xbmc/rendering/gl/RenderSystemGL.h
+@@ -73,7 +73,7 @@ class CRenderSystemGL : public CRenderSystemBase
+   bool BeginRender() override;
+   bool EndRender() override;
+   void PresentRender(bool rendered, bool videoLayer) override;
+-  bool ClearBuffers(UTILS::COLOR::Color color) override;
++  bool ClearBuffers(UTILS::COLOR::Color color, bool forceClearColor, bool forceClearDepth) override;
+   bool IsExtSupported(const char* extension) const override;
+ 
+   void SetVSync(bool vsync);
+@@ -87,6 +87,8 @@ class CRenderSystemGL : public CRenderSystemBase
+   void SetScissors(const CRect &rect) override;
+   void ResetScissors() override;
+ 
++  void SetDepthCulling(DEPTH_CULLING culling) override;
++
+   void CaptureStateBlock() override;
+   void ApplyStateBlock() override;
+ 
+@@ -112,6 +114,7 @@ class CRenderSystemGL : public CRenderSystemBase
+   GLint ShaderGetCol();
+   GLint ShaderGetCoord0();
+   GLint ShaderGetCoord1();
++  GLint ShaderGetDepth();
+   GLint ShaderGetUniCol();
+   GLint ShaderGetModel();
+ 
+diff --git a/xbmc/rendering/gles/GLESShader.cpp b/xbmc/rendering/gles/GLESShader.cpp
+index 3964f4ba47e91..e4e92d0ed0e52 100644
+--- a/xbmc/rendering/gles/GLESShader.cpp
++++ b/xbmc/rendering/gles/GLESShader.cpp
+@@ -53,6 +53,7 @@ void CGLESShader::OnCompiledAndLinked()
+   m_hProj  = glGetUniformLocation(ProgramHandle(), "m_proj");
+   m_hModel = glGetUniformLocation(ProgramHandle(), "m_model");
+   m_hCoord0Matrix = glGetUniformLocation(ProgramHandle(), "m_coord0Matrix");
++  m_hDepth = glGetUniformLocation(ProgramHandle(), "m_depth");
+ 
+   // Vertex attributes
+   m_hPos    = glGetAttribLocation(ProgramHandle(),  "m_attrpos");
+diff --git a/xbmc/rendering/gles/GLESShader.h b/xbmc/rendering/gles/GLESShader.h
+index 8ce31e55700ea..b90c8fc5c33cc 100644
+--- a/xbmc/rendering/gles/GLESShader.h
++++ b/xbmc/rendering/gles/GLESShader.h
+@@ -25,6 +25,7 @@ class CGLESShader : public Shaders::CGLSLShaderProgram
+   GLint GetColLoc()   { return m_hCol;   }
+   GLint GetCord0Loc() { return m_hCord0; }
+   GLint GetCord1Loc() { return m_hCord1; }
++  GLint GetDepthLoc() { return m_hDepth; }
+   GLint GetUniColLoc() { return m_hUniCol; }
+   GLint GetCoord0MatrixLoc() { return m_hCoord0Matrix; }
+   GLint GetFieldLoc() { return m_hField; }
+@@ -53,6 +54,7 @@ class CGLESShader : public Shaders::CGLSLShaderProgram
+   GLint m_hStep = 0;
+   GLint m_hContrast = 0;
+   GLint m_hBrightness = 0;
++  GLint m_hDepth = 0;
+ 
+   const GLfloat *m_proj;
+   const GLfloat *m_model;
+diff --git a/xbmc/rendering/gles/RenderSystemGLES.cpp b/xbmc/rendering/gles/RenderSystemGLES.cpp
+index d8557ff8a0f80..605e6179ad94c 100644
+--- a/xbmc/rendering/gles/RenderSystemGLES.cpp
++++ b/xbmc/rendering/gles/RenderSystemGLES.cpp
+@@ -99,6 +99,8 @@ bool CRenderSystemGLES::InitRenderSystem()
+ 
+   LogGraphicsInfo();
+ 
++  MatchGPUArchitecture();
++
+   m_bRenderCreated = true;
+ 
+   InitialiseShaders();
+@@ -184,19 +186,34 @@ bool CRenderSystemGLES::EndRender()
+   return true;
+ }
+ 
+-bool CRenderSystemGLES::ClearBuffers(UTILS::COLOR::Color color)
++bool CRenderSystemGLES::ClearBuffers(UTILS::COLOR::Color color,
++                                     bool forceClearColor,
++                                     bool forceClearDepth)
+ {
+   if (!m_bRenderCreated)
+     return false;
+ 
+-  float r = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::R, color) / 255.0f;
+-  float g = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::G, color) / 255.0f;
+-  float b = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::B, color) / 255.0f;
+-  float a = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::A, color) / 255.0f;
++  GLbitfield flags = 0;
++
++  if (forceClearColor || m_isTileBasedGPU)
++  {
++    float r = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::R, color) / 255.0f;
++    float g = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::G, color) / 255.0f;
++    float b = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::B, color) / 255.0f;
++    float a = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::A, color) / 255.0f;
++
++    glClearColor(r, g, b, a);
++
++    flags = GL_COLOR_BUFFER_BIT;
++  }
+ 
+-  glClearColor(r, g, b, a);
++  if (forceClearDepth)
++  {
++    flags |= GL_DEPTH_BUFFER_BIT;
++    glClearDepthf(0);
++    glDepthMask(true);
++  }
+ 
+-  GLbitfield flags = GL_COLOR_BUFFER_BIT;
+   glClear(flags);
+ 
+   return true;
+@@ -380,6 +397,27 @@ void CRenderSystemGLES::ResetScissors()
+   SetScissors(CRect(0, 0, (float)m_width, (float)m_height));
+ }
+ 
++void CRenderSystemGLES::SetDepthCulling(DEPTH_CULLING culling)
++{
++  if (culling == DEPTH_CULLING_OFF)
++  {
++    glDisable(GL_DEPTH_TEST);
++    glDepthMask(GL_FALSE);
++  }
++  else if (culling == DEPTH_CULLING_BACK_TO_FRONT)
++  {
++    glEnable(GL_DEPTH_TEST);
++    glDepthMask(GL_FALSE);
++    glDepthFunc(GL_GEQUAL);
++  }
++  else if (culling == DEPTH_CULLING_FRONT_TO_BACK)
++  {
++    glEnable(GL_DEPTH_TEST);
++    glDepthMask(GL_TRUE);
++    glDepthFunc(GL_GREATER);
++  }
++}
++
+ void CRenderSystemGLES::InitialiseShaders()
+ {
+   std::string defines;
+@@ -607,6 +645,14 @@ GLint CRenderSystemGLES::GUIShaderGetCoord1()
+   return -1;
+ }
+ 
++GLint CRenderSystemGLES::ShaderGetDepth()
++{
++  if (m_pShader[m_method])
++    return m_pShader[m_method]->GetDepthLoc();
++
++  return -1;
++}
++
+ GLint CRenderSystemGLES::GUIShaderGetUniCol()
+ {
+   if (m_pShader[m_method])
+diff --git a/xbmc/rendering/gles/RenderSystemGLES.h b/xbmc/rendering/gles/RenderSystemGLES.h
+index e0cd72b9c1937..00576e29f001d 100644
+--- a/xbmc/rendering/gles/RenderSystemGLES.h
++++ b/xbmc/rendering/gles/RenderSystemGLES.h
+@@ -83,7 +83,9 @@ class CRenderSystemGLES : public CRenderSystemBase
+   bool BeginRender() override;
+   bool EndRender() override;
+   void PresentRender(bool rendered, bool videoLayer) override;
+-  bool ClearBuffers(UTILS::COLOR::Color color) override;
++  bool ClearBuffers(UTILS::COLOR::Color color,
++                    bool forceClearColor = true,
++                    bool forceClearDepth = true) override;
+   bool IsExtSupported(const char* extension) const override;
+ 
+   void SetVSync(bool vsync);
+@@ -97,6 +99,8 @@ class CRenderSystemGLES : public CRenderSystemBase
+   void SetScissors(const CRect& rect) override;
+   void ResetScissors() override;
+ 
++  void SetDepthCulling(DEPTH_CULLING culling) override;
++
+   void CaptureStateBlock() override;
+   void ApplyStateBlock() override;
+ 
+@@ -124,6 +128,7 @@ class CRenderSystemGLES : public CRenderSystemBase
+   GLint GUIShaderGetContrast();
+   GLint GUIShaderGetBrightness();
+   GLint GUIShaderGetModel();
++  GLint ShaderGetDepth();
+ 
+ protected:
+   virtual void SetVSyncImpl(bool enable) = 0;
+diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
+index 7fde2f16867f6..a825acc42e0eb 100644
+--- a/xbmc/settings/AdvancedSettings.cpp
++++ b/xbmc/settings/AdvancedSettings.cpp
+@@ -1243,6 +1243,7 @@ void CAdvancedSettings::ParseSettingsFile(const std::string &file)
+     XMLUtils::GetBoolean(pElement, "visualizedirtyregions", m_guiVisualizeDirtyRegions);
+     XMLUtils::GetInt(pElement, "algorithmdirtyregions",     m_guiAlgorithmDirtyRegions);
+     XMLUtils::GetBoolean(pElement, "smartredraw", m_guiSmartRedraw);
++    XMLUtils::GetBoolean(pElement, "fronttobackrendering", m_guiFrontToBackRendering);
+   }
+ 
+   std::string seekSteps;
+diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
+index 4ba4e7e8b075e..5794284f27c9f 100644
+--- a/xbmc/settings/AdvancedSettings.h
++++ b/xbmc/settings/AdvancedSettings.h
+@@ -341,6 +341,7 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
+     bool m_guiVisualizeDirtyRegions;
+     int  m_guiAlgorithmDirtyRegions;
+     bool m_guiSmartRedraw;
++    bool m_guiFrontToBackRendering{false};
+     unsigned int m_addonPackageFolderSize;
+ 
+     unsigned int m_cacheMemSize;
+diff --git a/xbmc/utils/TransformMatrix.h b/xbmc/utils/TransformMatrix.h
+index a9bf8fdc74331..0287ad55c534c 100644
+--- a/xbmc/utils/TransformMatrix.h
++++ b/xbmc/utils/TransformMatrix.h
+@@ -36,6 +36,7 @@ class TransformMatrix
+     m[2][0] = m[2][1] = m[2][3] = 0.0f; m[2][2] = 1.0f;
+     alpha = red = green = blue = 1.0f;
+     identity = true;
++    depth = 0;
+   };
+   static TransformMatrix CreateTranslation(float transX, float transY, float transZ = 0)
+   {
+@@ -50,6 +51,7 @@ class TransformMatrix
+     m[2][0] = m[2][1] = 0.0f; m[2][2] = 1.0f; m[2][3] = transZ;
+     alpha = red = green = blue = 1.0f;
+     identity = (transX == 0 && transY == 0 && transZ == 0);
++    depth = 0;
+   }
+   static TransformMatrix CreateScaler(float scaleX, float scaleY, float scaleZ = 1.0f)
+   {
+@@ -69,6 +71,7 @@ class TransformMatrix
+     m[2][0] = 0.0f;    m[2][1] = 0.0f;    m[2][2] = scaleZ;  m[2][3] = centerZ*(1-scaleZ);
+     alpha = red = green = blue = 1.0f;
+     identity = (scaleX == 1 && scaleY == 1);
++    depth = 0;
+   };
+   void SetXRotation(float angle, float y, float z, float ar = 1.0f)
+   { // angle about the X axis, centered at y,z where our coordinate system has aspect ratio ar.
+@@ -79,6 +82,7 @@ class TransformMatrix
+     m[2][0] = 0.0f;  m[2][1] = s;     m[2][2] = c;      m[2][3] = (-y*s-c*z) + z;
+     alpha = red = green = blue = 1.0f;
+     identity = (angle == 0);
++    depth = 0;
+   }
+   void SetYRotation(float angle, float x, float z, float ar = 1.0f)
+   { // angle about the Y axis, centered at x,z where our coordinate system has aspect ratio ar.
+@@ -89,6 +93,7 @@ class TransformMatrix
+     m[2][0] = ar*s;  m[2][1] = 0.0f;  m[2][2] = c;      m[2][3] = -ar*x*s - c*z + z;
+     alpha = red = green = blue = 1.0f;
+     identity = (angle == 0);
++    depth = 0;
+   }
+   static TransformMatrix CreateZRotation(float angle, float x, float y, float ar = 1.0f)
+   { // angle about the Z axis, centered at x,y where our coordinate system has aspect ratio ar.
+@@ -106,6 +111,7 @@ class TransformMatrix
+     m[2][0] = 0.0f;  m[2][1] = 0.0f;   m[2][2] = 1.0f;  m[2][3] = 0.0f;
+     alpha = red = green = blue = 1.0f;
+     identity = (angle == 0);
++    depth = 0;
+   }
+   static TransformMatrix CreateFader(float a)
+   {
+@@ -127,6 +133,7 @@ class TransformMatrix
+     alpha = a;
+     red = green = blue = 1.0f;
+     identity = (a == 1.0f);
++    depth = 0;
+   }
+ 
+   void SetFader(float a, float r, float g, float b)
+@@ -139,6 +146,7 @@ class TransformMatrix
+     green = g;
+     blue = b;
+     identity = ((a == 1.0f) && (r == 1.0f) && (g == 1.0f) && (b == 1.0f));
++    depth = 0;
+   }
+ 
+   // multiplication operators
+@@ -171,6 +179,7 @@ class TransformMatrix
+     green *= right.green;
+     blue *= right.blue;
+     identity = false;
++    depth = std::max(depth, right.depth);
+     return *this;
+   }
+ 
+@@ -198,6 +207,7 @@ class TransformMatrix
+     result.green = green * right.green;
+     result.blue = blue * right.blue;
+     result.identity = false;
++    result.depth = std::max(depth, right.depth);
+     return result;
+   }
+ 
+@@ -278,12 +288,14 @@ class TransformMatrix
+   float green;
+   float blue;
+   bool identity;
++  uint32_t depth{0};
+ };
+ 
+ inline bool operator==(const TransformMatrix &a, const TransformMatrix &b)
+ {
+   bool comparison =
+       a.alpha == b.alpha && a.red == b.red && a.green == b.green && a.blue == b.blue &&
++      a.depth == b.depth &&
+       ((a.identity && b.identity) ||
+        (!a.identity && !b.identity &&
+         std::equal(&a.m[0][0], &a.m[0][0] + sizeof(a.m) / sizeof(a.m[0][0]), &b.m[0][0])));
+diff --git a/xbmc/video/windows/GUIWindowFullScreen.cpp b/xbmc/video/windows/GUIWindowFullScreen.cpp
+index 7cebc5fa07ec7..2a89a536a38ac 100644
+--- a/xbmc/video/windows/GUIWindowFullScreen.cpp
++++ b/xbmc/video/windows/GUIWindowFullScreen.cpp
+@@ -180,6 +180,8 @@ void CGUIWindowFullScreen::ClearBackground()
+   const auto appPlayer = components.GetComponent<CApplicationPlayer>();
+   if (appPlayer->IsRenderingVideoLayer())
+     CServiceBroker::GetWinSystem()->GetGfxContext().Clear(0);
++  else
++    CServiceBroker::GetWinSystem()->GetGfxContext().Clear();
+ }
+ 
+ void CGUIWindowFullScreen::OnWindowLoaded()
+@@ -374,10 +376,15 @@ void CGUIWindowFullScreen::Process(unsigned int currentTime, CDirtyRegionList &d
+ 
+ void CGUIWindowFullScreen::Render()
+ {
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_FRONT_TO_BACK)
++    return;
+   CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderingResolution(CServiceBroker::GetWinSystem()->GetGfxContext().GetVideoResolution(), false);
+   auto& components = CServiceBroker::GetAppComponents();
+   const auto appPlayer = components.GetComponent<CApplicationPlayer>();
+-  appPlayer->Render(true, 255);
++  // Tilers clear on frame start
++  bool clear = !CServiceBroker::GetWinSystem()->GetRenderSystem()->IsTileBasedGPU();
++  appPlayer->Render(clear, 255);
+   CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderingResolution(m_coordsRes, m_needsScaling);
+   CGUIWindow::Render();
+ }
+diff --git a/xbmc/windowing/GraphicContext.cpp b/xbmc/windowing/GraphicContext.cpp
+index a5513fa191083..c6ba73ec91df6 100644
+--- a/xbmc/windowing/GraphicContext.cpp
++++ b/xbmc/windowing/GraphicContext.cpp
+@@ -580,9 +580,16 @@ void CGraphicContext::ResetScreenParameters(RESOLUTION res)
+   ResetOverscan(res, info.Overscan);
+ }
+ 
++void CGraphicContext::Clear()
++{
++  bool twoPassRendering = m_renderOrder != RENDER_ORDER_ALL_BACK_TO_FRONT;
++  CServiceBroker::GetRenderSystem()->ClearBuffers(0xff000000, false, twoPassRendering);
++}
++
+ void CGraphicContext::Clear(UTILS::COLOR::Color color)
+ {
+-  CServiceBroker::GetRenderSystem()->ClearBuffers(color);
++  bool twoPassRendering = m_renderOrder != RENDER_ORDER_ALL_BACK_TO_FRONT;
++  CServiceBroker::GetRenderSystem()->ClearBuffers(color, true, twoPassRendering);
+ }
+ 
+ void CGraphicContext::CaptureStateBlock()
+@@ -822,6 +829,14 @@ void CGraphicContext::RestoreStereoFactor()
+   UpdateCameraPosition(m_cameras.top(), m_stereoFactors.top());
+ }
+ 
++float CGraphicContext::GetTransformDepth(int32_t depthOffset)
++{
++  float depth = static_cast<float>(m_finalTransform.matrix.depth + depthOffset);
++  depth /= m_layer;
++  depth = depth * 2 - 1;
++  return depth;
++}
++
+ CRect CGraphicContext::GenerateAABB(const CRect &rect) const
+ {
+ // ------------------------
+@@ -1006,6 +1021,23 @@ void CGraphicContext::GetAllowedResolutions(std::vector<RESOLUTION> &res)
+   }
+ }
+ 
++void CGraphicContext::SetRenderOrder(RENDER_ORDER renderOrder)
++{
++  m_renderOrder = renderOrder;
++  if (renderOrder == RENDER_ORDER_ALL_BACK_TO_FRONT)
++    CServiceBroker::GetRenderSystem()->SetDepthCulling(DEPTH_CULLING_OFF);
++  else if (renderOrder == RENDER_ORDER_BACK_TO_FRONT)
++    CServiceBroker::GetRenderSystem()->SetDepthCulling(DEPTH_CULLING_BACK_TO_FRONT);
++  else if (renderOrder == RENDER_ORDER_FRONT_TO_BACK)
++    CServiceBroker::GetRenderSystem()->SetDepthCulling(DEPTH_CULLING_FRONT_TO_BACK);
++}
++
++uint32_t CGraphicContext::GetDepth(uint32_t addLayers)
++{
++  m_layer += addLayers;
++  return m_layer;
++}
++
+ void CGraphicContext::SetFPS(float fps)
+ {
+   m_fFPSOverride = fps;
+diff --git a/xbmc/windowing/GraphicContext.h b/xbmc/windowing/GraphicContext.h
+index 9cd4f32718470..cb46525deafe1 100644
+--- a/xbmc/windowing/GraphicContext.h
++++ b/xbmc/windowing/GraphicContext.h
+@@ -57,6 +57,13 @@ enum AdjustRefreshRate
+   ADJUST_REFRESHRATE_ON_START,
+ };
+ 
++enum RENDER_ORDER
++{
++  RENDER_ORDER_ALL_BACK_TO_FRONT = 0,
++  RENDER_ORDER_BACK_TO_FRONT,
++  RENDER_ORDER_FRONT_TO_BACK,
++};
++
+ class CGraphicContext : public CCriticalSection
+ {
+ public:
+@@ -99,8 +106,25 @@ class CGraphicContext : public CCriticalSection
+   void ResetScreenParameters(RESOLUTION res);
+   void CaptureStateBlock();
+   void ApplyStateBlock();
+-  void Clear(UTILS::COLOR::Color color = 0);
++  /*! \brief Clears the depth buffer (if used) and the color buffer on tiling
++   GPUs. Will result in undefined color buffer values which will have to be
++   repainted. Has to be called at the beginning of a frame.
++   */
++  void Clear();
++  /*! \brief Clears the depth buffer (if used) and the color buffer. Guaranties
++   a defined frame buffer value. Has to be called at the beginning of a frame.
++   \param color the specified color.
++   */
++  void Clear(UTILS::COLOR::Color color);
+   void GetAllowedResolutions(std::vector<RESOLUTION> &res);
++  void SetRenderOrder(RENDER_ORDER renderOrder);
++  RENDER_ORDER GetRenderOrder() { return m_renderOrder; }
++  void ResetDepth() { m_layer = 2; }
++  /*! \brief Adds layers for the caller to use
++   \param addLayers number of layers needed
++   \returns uint32_t returns the absolute layer hight
++   */
++  uint32_t GetDepth(uint32_t addLayers = 2);
+ 
+   /* \brief Get UI scaling information from a given resolution to the screen resolution.
+    Takes account of overscan and UI zooming.
+@@ -134,6 +158,11 @@ class CGraphicContext : public CCriticalSection
+   void RestoreCameraPosition();
+   void SetStereoFactor(float factor);
+   void RestoreStereoFactor();
++  /*! \brief Gets the depth information of the current transform matrix
++   \param depthOffset adds an offset to the current depth
++   \returns float normalized -1 to 1
++   */
++  float GetTransformDepth(int32_t depthOffset = 0);
+   /*! \brief Set a region in which to clip all rendering
+    Anything that is rendered after setting a clip region will be clipped so that no part renders
+    outside of the clip region.  Successive calls to SetClipRegion intersect the clip region, which
+@@ -229,4 +258,6 @@ class CGraphicContext : public CCriticalSection
+   RENDER_STEREO_VIEW m_stereoView = RENDER_STEREO_VIEW_OFF;
+   RENDER_STEREO_MODE m_stereoMode = RENDER_STEREO_MODE_OFF;
+   RENDER_STEREO_MODE m_nextStereoMode = RENDER_STEREO_MODE_OFF;
++  RENDER_ORDER m_renderOrder{RENDER_ORDER_ALL_BACK_TO_FRONT};
++  uint32_t m_layer{2};
+ };
+diff --git a/xbmc/windowing/X11/GLContextEGL.cpp b/xbmc/windowing/X11/GLContextEGL.cpp
+index 7999e76b982cb..a7c4c3ea00213 100644
+--- a/xbmc/windowing/X11/GLContextEGL.cpp
++++ b/xbmc/windowing/X11/GLContextEGL.cpp
+@@ -341,7 +341,7 @@ bool CGLContextEGL::SuitableCheck(EGLDisplay eglDisplay, EGLConfig config)
+     return false;
+   if (!eglGetConfigAttrib(eglDisplay, config, EGL_BLUE_SIZE, &value) || value < 8)
+     return false;
+-  if (!eglGetConfigAttrib(eglDisplay, config, EGL_DEPTH_SIZE, &value) || value < 24)
++  if (!eglGetConfigAttrib(eglDisplay, config, EGL_DEPTH_SIZE, &value) || value < 16)
+     return false;
+ 
+   return true;
+diff --git a/xbmc/windows/GUIWindowDebugInfo.cpp b/xbmc/windows/GUIWindowDebugInfo.cpp
+index 764e6b0b714f7..866d506fe332e 100644
+--- a/xbmc/windows/GUIWindowDebugInfo.cpp
++++ b/xbmc/windows/GUIWindowDebugInfo.cpp
+@@ -179,7 +179,13 @@ void CGUIWindowDebugInfo::Process(unsigned int currentTime, CDirtyRegionList &di
+ 
+ void CGUIWindowDebugInfo::Render()
+ {
++  RENDER_ORDER renderOrder = CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder();
++  if (renderOrder == RENDER_ORDER_FRONT_TO_BACK)
++    return;
++  else if (renderOrder == RENDER_ORDER_BACK_TO_FRONT)
++    CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderOrder(RENDER_ORDER_ALL_BACK_TO_FRONT);
+   CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderingResolution(CServiceBroker::GetWinSystem()->GetGfxContext().GetResInfo(), false);
+   if (m_layout)
+     m_layout->RenderOutline(m_renderRegion.x1, m_renderRegion.y1, 0xffffffff, 0xff000000, 0, 0);
++  CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderOrder(renderOrder);
+ }
+
+From 9c90ff48539da6807d22a24e06a653916a780b76 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Mon, 6 Mar 2023 22:06:36 +0100
+Subject: [PATCH 02/23] Make Jenkins happy
+
+---
+ xbmc/guilib/GUITexture.cpp | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/xbmc/guilib/GUITexture.cpp b/xbmc/guilib/GUITexture.cpp
+index 769a43052f2ed..30eaecdc5f21d 100644
+--- a/xbmc/guilib/GUITexture.cpp
++++ b/xbmc/guilib/GUITexture.cpp
+@@ -185,20 +185,20 @@ void CGUITexture::Render(int32_t depthOffset)
+   bool hasAlpha =
+       (((color >> 24) & 0xFF) != 0xFF || m_texture.m_textures[m_currentFrame]->HasAlpha());
+   if (m_diffuse.size())
+-          hasAlpha |= m_diffuse.m_textures[0]->HasAlpha();
++    hasAlpha |= m_diffuse.m_textures[0]->HasAlpha();
+ 
+   // bail if it is not the appropriate render pass
+   RENDER_ORDER renderOrder = CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder();
+   if (hasAlpha && renderOrder == RENDER_ORDER_FRONT_TO_BACK)
+-          return;
++    return;
+   if (!hasAlpha && renderOrder == RENDER_ORDER_BACK_TO_FRONT)
+-          return;
++    return;
+ 
+   // see if we need to clip the image
+   if (m_vertex.Width() > m_width || m_vertex.Height() > m_height)
+   {
+-          if (!CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_posX, m_posY,
+-                                                                             m_width, m_height))
++    if (!CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_posX, m_posY, m_width,
++                                                                     m_height))
+       return;
+   }
+ 
+
+From 7b16dda207b15879b1af805a2969a7ff64f5d39e Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Mon, 6 Mar 2023 22:08:12 +0100
+Subject: [PATCH 03/23] Remove calls disabling depth testing
+
+---
+ .../VideoRenderers/HwDecRender/RendererMediaCodec.cpp         | 2 --
+ xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp   | 4 ----
+ 2 files changed, 6 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodec.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodec.cpp
+index a655b89a9ac2f..8472c91f5ab3f 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodec.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodec.cpp
+@@ -113,8 +113,6 @@ bool CRendererMediaCodec::RenderHook(int index)
+   CYuvPlane &plane = m_buffers[index].fields[0][0];
+   CYuvPlane &planef = m_buffers[index].fields[m_currentField][0];
+ 
+-  glDisable(GL_DEPTH_TEST);
+-
+   glActiveTexture(GL_TEXTURE0);
+   glBindTexture(GL_TEXTURE_EXTERNAL_OES, plane.id);
+ 
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+index 22e58ef546c3c..acd9e4849aa95 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+@@ -912,8 +912,6 @@ void CLinuxRendererGLES::RenderSinglePass(int index, int field)
+     LoadShaders(field);
+   }
+ 
+-  glDisable(GL_DEPTH_TEST);
+-
+   // Y
+   glActiveTexture(GL_TEXTURE0);
+   glBindTexture(m_textureTarget, planes[0].id);
+@@ -1063,8 +1061,6 @@ void CLinuxRendererGLES::RenderToFBO(int index, int field)
+     }
+   }
+ 
+-  glDisable(GL_DEPTH_TEST);
+-
+   // Y
+   glActiveTexture(GL_TEXTURE0);
+   glBindTexture(m_textureTarget, planes[0].id);
+
+From 70191ebb21e480ff0591cae33c7f22cef4728e7d Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Mon, 6 Mar 2023 22:09:14 +0100
+Subject: [PATCH 04/23] Move video layers to the back of the NDCs
+
+---
+ system/shaders/GL/1.2/gl_shader_vert_default.glsl | 2 +-
+ system/shaders/GL/1.2/gl_yuv2rgb_vertex.glsl      | 2 +-
+ system/shaders/GL/1.5/gl_shader_vert_default.glsl | 2 +-
+ system/shaders/GL/1.5/gl_yuv2rgb_vertex.glsl      | 2 +-
+ system/shaders/GLES/2.0/gles_yuv2rgb.vert         | 2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/system/shaders/GL/1.2/gl_shader_vert_default.glsl b/system/shaders/GL/1.2/gl_shader_vert_default.glsl
+index 937336ff0df93..bbb06cb5fe494 100644
+--- a/system/shaders/GL/1.2/gl_shader_vert_default.glsl
++++ b/system/shaders/GL/1.2/gl_shader_vert_default.glsl
+@@ -28,5 +28,5 @@ void main ()
+ {
+   mat4 mvp    = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
+-  gl_Position.z = 0.;
++  gl_Position.z = -1. * gl_Position.w;
+ }
+diff --git a/system/shaders/GL/1.2/gl_yuv2rgb_vertex.glsl b/system/shaders/GL/1.2/gl_yuv2rgb_vertex.glsl
+index 9f1d67e78b938..8d7e0c35301ea 100644
+--- a/system/shaders/GL/1.2/gl_yuv2rgb_vertex.glsl
++++ b/system/shaders/GL/1.2/gl_yuv2rgb_vertex.glsl
+@@ -32,7 +32,7 @@ void main ()
+ {
+   mat4 mvp    = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
+-  gl_Position.z = 0.;
++  gl_Position.z = -1. * gl_Position.w;
+   m_cordY     = m_attrcordY;
+   m_cordU     = m_attrcordU;
+   m_cordV     = m_attrcordV;
+diff --git a/system/shaders/GL/1.5/gl_shader_vert_default.glsl b/system/shaders/GL/1.5/gl_shader_vert_default.glsl
+index 70bb3b2f683af..b68ef12925ba4 100644
+--- a/system/shaders/GL/1.5/gl_shader_vert_default.glsl
++++ b/system/shaders/GL/1.5/gl_shader_vert_default.glsl
+@@ -8,5 +8,5 @@ void main ()
+ {
+   mat4 mvp    = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
+-  gl_Position.z = 0.;
++  gl_Position.z = -1. * gl_Position.w;
+ }
+diff --git a/system/shaders/GL/1.5/gl_yuv2rgb_vertex.glsl b/system/shaders/GL/1.5/gl_yuv2rgb_vertex.glsl
+index f94f69d12e72f..257aacfcc2e88 100644
+--- a/system/shaders/GL/1.5/gl_yuv2rgb_vertex.glsl
++++ b/system/shaders/GL/1.5/gl_yuv2rgb_vertex.glsl
+@@ -14,7 +14,7 @@ void main ()
+ {
+   mat4 mvp = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
+-  gl_Position.z = 0.;
++  gl_Position.z = -1. * gl_Position.w;
+   m_cordY = m_attrcordY;
+   m_cordU = m_attrcordU;
+   m_cordV = m_attrcordV;
+diff --git a/system/shaders/GLES/2.0/gles_yuv2rgb.vert b/system/shaders/GLES/2.0/gles_yuv2rgb.vert
+index 8dfac9325795f..c96a6a958594c 100644
+--- a/system/shaders/GLES/2.0/gles_yuv2rgb.vert
++++ b/system/shaders/GLES/2.0/gles_yuv2rgb.vert
+@@ -34,7 +34,7 @@ void main ()
+ {
+   mat4 mvp = m_proj * m_model;
+   gl_Position = mvp * m_attrpos;
+-  gl_Position.z = 0.;
++  gl_Position.z = -1. * gl_Position.w;
+   m_cordY = m_attrcordY;
+   m_cordU = m_attrcordU;
+   m_cordV = m_attrcordV;
+
+From 50e47128fadab536b2ed46db7ac2a0b7a9f7f29a Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Tue, 7 Mar 2023 00:53:34 +0100
+Subject: [PATCH 05/23] Let the GFX context clear the screen
+
+---
+ xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp
+index e5ae0e1b7401e..a2f2154c44562 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGL.cpp
+@@ -532,9 +532,7 @@ void CLinuxRendererGL::ClearBackBuffer()
+   if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
+       RENDER_ORDER_ALL_BACK_TO_FRONT)
+   {
+-    glClearColor(m_clearColour, m_clearColour, m_clearColour, 0);
+-    glClear(GL_COLOR_BUFFER_BIT);
+-    glClearColor(0, 0, 0, 0);
++    CServiceBroker::GetWinSystem()->GetGfxContext().Clear(0xff000000);
+   }
+   else
+   {
+
+From 24200ffca3d505bd7ce5779bd21620538dbb2c1c Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Tue, 7 Mar 2023 00:54:48 +0100
+Subject: [PATCH 06/23] Mirror clearing behavior of LinuxRendererGL
+
+---
+ .../VideoRenderers/LinuxRendererGLES.cpp      | 34 +++++++++++++++----
+ .../VideoRenderers/LinuxRendererGLES.h        |  3 +-
+ 2 files changed, 30 insertions(+), 7 deletions(-)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+index acd9e4849aa95..026348cf67b88 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+@@ -358,6 +358,21 @@ void CLinuxRendererGLES::Update()
+   ValidateRenderTarget();
+ }
+ 
++void CLinuxRendererGLES::ClearBackBuffer()
++{
++  //set the entire backbuffer to black
++  //if we do a two pass render, we have to draw a quad. else we might occlude OSD elements.
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_ALL_BACK_TO_FRONT)
++  {
++    CServiceBroker::GetWinSystem()->GetGfxContext().Clear(0xff000000);
++  }
++  else
++  {
++    ClearBackBufferQuad();
++  }
++}
++
+ void CLinuxRendererGLES::ClearBackBufferQuad()
+ {
+   CRect windowRect(0, 0, CServiceBroker::GetWinSystem()->GetGfxContext().GetWidth(),
+@@ -472,6 +487,9 @@ void CLinuxRendererGLES::RenderUpdate(int index, int index2, bool clear, unsigne
+   // if its first pass, just init textures and return
+   if (ValidateRenderTarget())
+   {
++    if (clear) //if clear is set, we're expected to overwrite all backbuffer pixels, even if we have nothing to render
++      ClearBackBuffer();
++
+     return;
+   }
+ 
+@@ -496,9 +514,7 @@ void CLinuxRendererGLES::RenderUpdate(int index, int index2, bool clear, unsigne
+       DrawBlackBars();
+     else
+     {
+-      glClearColor(m_clearColour, m_clearColour, m_clearColour, 0);
+-      glClear(GL_COLOR_BUFFER_BIT);
+-      glClearColor(0, 0, 0, 0);
++      ClearBackBuffer();
+     }
+   }
+ 
+@@ -530,7 +546,8 @@ void CLinuxRendererGLES::RenderUpdate(int index, int index2, bool clear, unsigne
+     }
+   }
+ 
+-  Render(flags, index);
++  if (!Render(flags, index) && clear)
++    ClearBackBuffer();
+ 
+   VerifyGLState();
+   glEnable(GL_BLEND);
+@@ -823,7 +840,7 @@ bool CLinuxRendererGLES::UploadTexture(int index)
+   return ret;
+ }
+ 
+-void CLinuxRendererGLES::Render(unsigned int flags, int index)
++bool CLinuxRendererGLES::Render(unsigned int flags, int index)
+ {
+   // obtain current field, if interlaced
+   if( flags & RENDER_FLAG_TOP)
+@@ -842,7 +859,7 @@ void CLinuxRendererGLES::Render(unsigned int flags, int index)
+   // call texture load function
+   if (!UploadTexture(index))
+   {
+-    return;
++    return false;
+   }
+ 
+   if (RenderHook(index))
+@@ -872,8 +889,13 @@ void CLinuxRendererGLES::Render(unsigned int flags, int index)
+       break;
+     }
+   }
++  else
++  {
++    return false;
++  }
+ 
+   AfterRenderHook(index);
++  return true;
+ }
+ 
+ void CLinuxRendererGLES::RenderSinglePass(int index, int field)
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
+index 351740d788221..79cb1b1278938 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.h
+@@ -91,7 +91,7 @@ class CLinuxRendererGLES : public CBaseRenderer
+   static const int FIELD_TOP{1};
+   static const int FIELD_BOT{2};
+ 
+-  virtual void Render(unsigned int flags, int index);
++  virtual bool Render(unsigned int flags, int index);
+   virtual void RenderUpdateVideo(bool clear, unsigned int flags = 0, unsigned int alpha = 255);
+ 
+   int NextYV12Texture();
+@@ -212,6 +212,7 @@ class CLinuxRendererGLES : public CBaseRenderer
+   CRect m_viewRect;
+ 
+ private:
++  void ClearBackBuffer();
+   void ClearBackBufferQuad();
+   void DrawBlackBars();
+ };
+
+From 49ec1eefa1626f527327061c0329bb510394817f Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Tue, 7 Mar 2023 00:55:29 +0100
+Subject: [PATCH 07/23] Second try for Jenkins
+
+---
+ xbmc/guilib/GUITexture.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/xbmc/guilib/GUITexture.cpp b/xbmc/guilib/GUITexture.cpp
+index 30eaecdc5f21d..b6030c097df5e 100644
+--- a/xbmc/guilib/GUITexture.cpp
++++ b/xbmc/guilib/GUITexture.cpp
+@@ -198,7 +198,7 @@ void CGUITexture::Render(int32_t depthOffset)
+   if (m_vertex.Width() > m_width || m_vertex.Height() > m_height)
+   {
+     if (!CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_posX, m_posY, m_width,
+-                                                                     m_height))
++                                                                       m_height))
+       return;
+   }
+ 
+
+From a180b3e2014a1bb4a0ae588ab3fa02733a54cc84 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Tue, 7 Mar 2023 21:33:50 +0100
+Subject: [PATCH 08/23] Apply depth to "static" font elements too
+
+---
+ xbmc/guilib/GUIFontTTFGL.cpp   | 3 +++
+ xbmc/guilib/GUIFontTTFGLES.cpp | 3 +++
+ 2 files changed, 6 insertions(+)
+
+diff --git a/xbmc/guilib/GUIFontTTFGL.cpp b/xbmc/guilib/GUIFontTTFGL.cpp
+index d45f231408760..fbb10a88a46e1 100644
+--- a/xbmc/guilib/GUIFontTTFGL.cpp
++++ b/xbmc/guilib/GUIFontTTFGL.cpp
+@@ -168,6 +168,9 @@ void CGUIFontTTFGL::LastEnd()
+     glVertexAttribPointer(tex0Loc, 2, GL_FLOAT, GL_FALSE, sizeof(SVertex),
+                           reinterpret_cast<const GLvoid*>(offsetof(SVertex, u)));
+ 
++    float depth = CServiceBroker::GetWinSystem()->GetGfxContext().GetTransformDepth();
++    glUniform1f(depthLoc, depth);
++
+     glDrawArrays(GL_TRIANGLES, 0, vecVertices.size());
+ 
+     glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+
+From 338dd709917bac206d3d7a422af5ba206e9cf5d0 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Wed, 8 Mar 2023 19:23:54 +0100
+Subject: [PATCH 09/23] Correct buttons front to back pass
+
+---
+ xbmc/guilib/GUIButtonControl.cpp | 15 ++++++++++++---
+ 1 file changed, 12 insertions(+), 3 deletions(-)
+
+diff --git a/xbmc/guilib/GUIButtonControl.cpp b/xbmc/guilib/GUIButtonControl.cpp
+index 90a88485a2975..75d05255db2f9 100644
+--- a/xbmc/guilib/GUIButtonControl.cpp
++++ b/xbmc/guilib/GUIButtonControl.cpp
+@@ -106,10 +106,19 @@ void CGUIButtonControl::Process(unsigned int currentTime, CDirtyRegionList &dirt
+ 
+ void CGUIButtonControl::Render()
+ {
+-  m_imgFocus->Render(-1);
+-  m_imgNoFocus->Render();
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++      RENDER_ORDER_FRONT_TO_BACK)
++  {
++    m_imgNoFocus->Render();
++    m_imgFocus->Render(-1);
++  }
++  else
++  {
++    m_imgFocus->Render(-1);
++    m_imgNoFocus->Render();
++    RenderText();
++  }
+ 
+-  RenderText();
+   CGUIControl::Render();
+ }
+ 
+
+From 4f84fbe5c8eaa51f2ce7bddc9309d4685ae02d1a Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Wed, 8 Mar 2023 19:26:03 +0100
+Subject: [PATCH 10/23] Correct bordered images front to back pass
+
+---
+ xbmc/guilib/GUIBorderedImage.cpp | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/guilib/GUIBorderedImage.cpp b/xbmc/guilib/GUIBorderedImage.cpp
+index 1215e627c4869..5abb4047c3b5c 100644
+--- a/xbmc/guilib/GUIBorderedImage.cpp
++++ b/xbmc/guilib/GUIBorderedImage.cpp
+@@ -56,9 +56,21 @@ void CGUIBorderedImage::Process(unsigned int currentTime, CDirtyRegionList &dirt
+ 
+ void CGUIBorderedImage::Render()
+ {
++  bool renderFrontToBack = CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++                           RENDER_ORDER_FRONT_TO_BACK;
++
++  if (renderFrontToBack)
++  {
++    CGUIImage::Render();
++  }
++
+   if (!m_borderImage->GetFileName().empty() && m_texture->ReadyToRender())
+     m_borderImage->Render(-1);
+-  CGUIImage::Render();
++
++  if (!renderFrontToBack)
++  {
++    CGUIImage::Render();
++  }
+ }
+ 
+ CRect CGUIBorderedImage::CalcRenderRegion() const
+
+From 02f10ce16791fe7413ae2092ae31ab35976c51a8 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Wed, 8 Mar 2023 23:43:21 +0100
+Subject: [PATCH 11/23] Draw quads close to the screen
+
+---
+ xbmc/guilib/GUITexture.cpp     | 9 +++++++--
+ xbmc/guilib/GUITexture.h       | 5 +++--
+ xbmc/guilib/GUITextureD3D.h    | 3 ++-
+ xbmc/guilib/GUITextureGL.cpp   | 5 ++++-
+ xbmc/guilib/GUITextureGL.h     | 3 ++-
+ xbmc/guilib/GUITextureGLES.cpp | 5 ++++-
+ xbmc/guilib/GUITextureGLES.h   | 3 ++-
+ 7 files changed, 24 insertions(+), 9 deletions(-)
+
+diff --git a/xbmc/guilib/GUITexture.cpp b/xbmc/guilib/GUITexture.cpp
+index b6030c097df5e..4aa1961a2249f 100644
+--- a/xbmc/guilib/GUITexture.cpp
++++ b/xbmc/guilib/GUITexture.cpp
+@@ -53,13 +53,18 @@ CGUITexture* CGUITexture::CreateTexture(
+ void CGUITexture::DrawQuad(const CRect& coords,
+                            UTILS::COLOR::Color color,
+                            CTexture* texture,
+-                           const CRect* texCoords)
++                           const CRect* texCoords,
++                           float depth)
+ {
++  // bail for now if we render front to back
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() == RENDER_ORDER_FRONT_TO_BACK)
++    return;
++
+   if (!m_drawQuadFunc)
+     throw std::runtime_error(
+         "No GUITexture DrawQuad function available. Did you forget to register?");
+ 
+-  m_drawQuadFunc(coords, color, texture, texCoords);
++  m_drawQuadFunc(coords, color, texture, texCoords, depth);
+ }
+ 
+ CGUITexture::CGUITexture(
+diff --git a/xbmc/guilib/GUITexture.h b/xbmc/guilib/GUITexture.h
+index e9ed4f2f84211..b1cb9cf07adb4 100644
+--- a/xbmc/guilib/GUITexture.h
++++ b/xbmc/guilib/GUITexture.h
+@@ -68,7 +68,7 @@ class CGUITexture;
+ using CreateGUITextureFunc = std::function<CGUITexture*(
+     float posX, float posY, float width, float height, const CTextureInfo& texture)>;
+ using DrawQuadFunc = std::function<void(
+-    const CRect& coords, UTILS::COLOR::Color color, CTexture* texture, const CRect* texCoords)>;
++    const CRect& coords, UTILS::COLOR::Color color, CTexture* texture, const CRect* texCoords, float depth)>;
+ 
+ class CGUITexture
+ {
+@@ -85,7 +85,8 @@ class CGUITexture
+   static void DrawQuad(const CRect& coords,
+                        UTILS::COLOR::Color color,
+                        CTexture* texture = nullptr,
+-                       const CRect* texCoords = nullptr);
++                       const CRect* texCoords = nullptr,
++                       float depth = 1.0);
+ 
+   bool Process(unsigned int currentTime);
+   void Render(int32_t depthOffset = 0);
+diff --git a/xbmc/guilib/GUITextureD3D.h b/xbmc/guilib/GUITextureD3D.h
+index a649f85ab1f22..2d8d6e4e1fffb 100644
+--- a/xbmc/guilib/GUITextureD3D.h
++++ b/xbmc/guilib/GUITextureD3D.h
+@@ -21,7 +21,8 @@ class CGUITextureD3D : public CGUITexture
+   static void DrawQuad(const CRect& coords,
+                        UTILS::COLOR::Color color,
+                        CTexture* texture = nullptr,
+-                       const CRect* texCoords = nullptr);
++                       const CRect* texCoords = nullptr,
++                       float depth = 1.0);
+ 
+   CGUITextureD3D(float posX, float posY, float width, float height, const CTextureInfo& texture);
+   ~CGUITextureD3D() override = default;
+diff --git a/xbmc/guilib/GUITextureGL.cpp b/xbmc/guilib/GUITextureGL.cpp
+index 4578bcee1138d..d27256ffecf5c 100644
+--- a/xbmc/guilib/GUITextureGL.cpp
++++ b/xbmc/guilib/GUITextureGL.cpp
+@@ -258,7 +258,8 @@ void CGUITextureGL::Draw(float *x, float *y, float *z, const CRect &texture, con
+ void CGUITextureGL::DrawQuad(const CRect& rect,
+                              UTILS::COLOR::Color color,
+                              CTexture* texture,
+-                             const CRect* texCoords)
++                             const CRect* texCoords,
++                             float depth)
+ {
+   CRenderSystemGL *renderSystem = dynamic_cast<CRenderSystemGL*>(CServiceBroker::GetRenderSystem());
+   if (texture)
+@@ -291,6 +292,7 @@ void CGUITextureGL::DrawQuad(const CRect& rect,
+   GLint posLoc = renderSystem->ShaderGetPos();
+   GLint tex0Loc = renderSystem->ShaderGetCoord0();
+   GLint uniColLoc = renderSystem->ShaderGetUniCol();
++  GLint depthLoc = renderSystem->ShaderGetDepth();
+ 
+   // Setup Colors
+   col[0] = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::R, color);
+@@ -299,6 +301,7 @@ void CGUITextureGL::DrawQuad(const CRect& rect,
+   col[3] = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::A, color);
+ 
+   glUniform4f(uniColLoc, col[0] / 255.0f, col[1] / 255.0f, col[2] / 255.0f, col[3] / 255.0f);
++  glUniform1f(depthLoc, depth);
+ 
+   // bottom left
+   vertex[0].x = rect.x1;
+diff --git a/xbmc/guilib/GUITextureGL.h b/xbmc/guilib/GUITextureGL.h
+index 4acba1eb6dedf..9f7b4dd5ac58b 100644
+--- a/xbmc/guilib/GUITextureGL.h
++++ b/xbmc/guilib/GUITextureGL.h
+@@ -27,7 +27,8 @@ class CGUITextureGL : public CGUITexture
+   static void DrawQuad(const CRect& coords,
+                        UTILS::COLOR::Color color,
+                        CTexture* texture = nullptr,
+-                       const CRect* texCoords = nullptr);
++                       const CRect* texCoords = nullptr,
++                       float depth = 1.0);
+ 
+   CGUITextureGL(float posX, float posY, float width, float height, const CTextureInfo& texture);
+   ~CGUITextureGL() override = default;
+diff --git a/xbmc/guilib/GUITextureGLES.cpp b/xbmc/guilib/GUITextureGLES.cpp
+index 66a255404070e..b68a9e07e16ad 100644
+--- a/xbmc/guilib/GUITextureGLES.cpp
++++ b/xbmc/guilib/GUITextureGLES.cpp
+@@ -237,7 +237,8 @@ void CGUITextureGLES::Draw(float *x, float *y, float *z, const CRect &texture, c
+ void CGUITextureGLES::DrawQuad(const CRect& rect,
+                                UTILS::COLOR::Color color,
+                                CTexture* texture,
+-                               const CRect* texCoords)
++                               const CRect* texCoords,
++                               float depth)
+ {
+   CRenderSystemGLES *renderSystem = dynamic_cast<CRenderSystemGLES*>(CServiceBroker::GetRenderSystem());
+   if (texture)
+@@ -264,6 +265,7 @@ void CGUITextureGLES::DrawQuad(const CRect& rect,
+   GLint posLoc   = renderSystem->GUIShaderGetPos();
+   GLint tex0Loc  = renderSystem->GUIShaderGetCoord0();
+   GLint uniColLoc= renderSystem->GUIShaderGetUniCol();
++  GLint depthLoc = renderSystem->ShaderGetDepth();
+ 
+   glVertexAttribPointer(posLoc,  3, GL_FLOAT, 0, 0, ver);
+   if (texture)
+@@ -280,6 +282,7 @@ void CGUITextureGLES::DrawQuad(const CRect& rect,
+   col[3] = KODI::UTILS::GL::GetChannelFromARGB(KODI::UTILS::GL::ColorChannel::A, color);
+ 
+   glUniform4f(uniColLoc, col[0] / 255.0f, col[1] / 255.0f, col[2] / 255.0f, col[3] / 255.0f);
++  glUniform1f(depthLoc, depth);
+ 
+   ver[0][0] = ver[3][0] = rect.x1;
+   ver[0][1] = ver[1][1] = rect.y1;
+diff --git a/xbmc/guilib/GUITextureGLES.h b/xbmc/guilib/GUITextureGLES.h
+index a9b361031b1cd..482aa3fa19c80 100644
+--- a/xbmc/guilib/GUITextureGLES.h
++++ b/xbmc/guilib/GUITextureGLES.h
+@@ -36,7 +36,8 @@ class CGUITextureGLES : public CGUITexture
+   static void DrawQuad(const CRect& coords,
+                        UTILS::COLOR::Color color,
+                        CTexture* texture = nullptr,
+-                       const CRect* texCoords = nullptr);
++                       const CRect* texCoords = nullptr,
++                       float depth = 1.0);
+ 
+   CGUITextureGLES(float posX, float posY, float width, float height, const CTextureInfo& texture);
+   ~CGUITextureGLES() override = default;
+
+From 5f7f7490995bd0371ef5577b95e548b5f8cdf86f Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Sat, 11 Mar 2023 18:01:44 +0100
+Subject: [PATCH 12/23] Assign depth of a focused group element last
+
+---
+ xbmc/guilib/GUIControlGroup.cpp | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/xbmc/guilib/GUIControlGroup.cpp b/xbmc/guilib/GUIControlGroup.cpp
+index 3e64cea5fabb9..bebbc64c1d93c 100644
+--- a/xbmc/guilib/GUIControlGroup.cpp
++++ b/xbmc/guilib/GUIControlGroup.cpp
+@@ -300,13 +300,19 @@ bool CGUIControlGroup::CanFocus() const
+ 
+ void CGUIControlGroup::AssignDepth()
+ {
++  CGUIControl *focusedControl = nullptr;
+   if (m_children.size())
+   {
+     for (auto* control : m_children)
+     {
+-      control->AssignDepth();
++      if (m_renderFocusedLast && control->HasFocus())
++        focusedControl = control;
++      else
++        control->AssignDepth();
+     }
+   }
++  if(focusedControl)
++    focusedControl->AssignDepth();
+ }
+ 
+ void CGUIControlGroup::SetInitialVisibility()
+
+From 62ed24bcbc253d088b3fd6a20866d56a6ec0e859 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Sat, 11 Mar 2023 22:15:36 +0100
+Subject: [PATCH 13/23] Fix DX/Constness
+
+---
+ xbmc/guilib/GUITexture.cpp     | 2 +-
+ xbmc/guilib/GUITexture.h       | 2 +-
+ xbmc/guilib/GUITextureD3D.cpp  | 3 ++-
+ xbmc/guilib/GUITextureD3D.h    | 2 +-
+ xbmc/guilib/GUITextureGL.cpp   | 2 +-
+ xbmc/guilib/GUITextureGL.h     | 2 +-
+ xbmc/guilib/GUITextureGLES.cpp | 2 +-
+ xbmc/guilib/GUITextureGLES.h   | 2 +-
+ 8 files changed, 9 insertions(+), 8 deletions(-)
+
+diff --git a/xbmc/guilib/GUITexture.cpp b/xbmc/guilib/GUITexture.cpp
+index 4aa1961a2249f..35075e8217a81 100644
+--- a/xbmc/guilib/GUITexture.cpp
++++ b/xbmc/guilib/GUITexture.cpp
+@@ -54,7 +54,7 @@ void CGUITexture::DrawQuad(const CRect& coords,
+                            UTILS::COLOR::Color color,
+                            CTexture* texture,
+                            const CRect* texCoords,
+-                           float depth)
++                           const float depth)
+ {
+   // bail for now if we render front to back
+   if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() == RENDER_ORDER_FRONT_TO_BACK)
+diff --git a/xbmc/guilib/GUITexture.h b/xbmc/guilib/GUITexture.h
+index b1cb9cf07adb4..57221f8b0bff9 100644
+--- a/xbmc/guilib/GUITexture.h
++++ b/xbmc/guilib/GUITexture.h
+@@ -86,7 +86,7 @@ class CGUITexture
+                        UTILS::COLOR::Color color,
+                        CTexture* texture = nullptr,
+                        const CRect* texCoords = nullptr,
+-                       float depth = 1.0);
++                       const float depth = 1.0);
+ 
+   bool Process(unsigned int currentTime);
+   void Render(int32_t depthOffset = 0);
+diff --git a/xbmc/guilib/GUITextureD3D.cpp b/xbmc/guilib/GUITextureD3D.cpp
+index d031cac40af1e..519211147cacb 100644
+--- a/xbmc/guilib/GUITextureD3D.cpp
++++ b/xbmc/guilib/GUITextureD3D.cpp
+@@ -140,7 +140,8 @@ void CGUITextureD3D::Draw(float *x, float *y, float *z, const CRect &texture, co
+ void CGUITextureD3D::DrawQuad(const CRect& rect,
+                               UTILS::COLOR::Color color,
+                               CTexture* texture,
+-                              const CRect* texCoords)
++                              const CRect* texCoords,
++                              const float depth)
+ {
+   unsigned numViews = 0;
+   ID3D11ShaderResourceView* views = nullptr;
+diff --git a/xbmc/guilib/GUITextureD3D.h b/xbmc/guilib/GUITextureD3D.h
+index 2d8d6e4e1fffb..e07a382b199f4 100644
+--- a/xbmc/guilib/GUITextureD3D.h
++++ b/xbmc/guilib/GUITextureD3D.h
+@@ -22,7 +22,7 @@ class CGUITextureD3D : public CGUITexture
+                        UTILS::COLOR::Color color,
+                        CTexture* texture = nullptr,
+                        const CRect* texCoords = nullptr,
+-                       float depth = 1.0);
++                       const float depth = 1.0);
+ 
+   CGUITextureD3D(float posX, float posY, float width, float height, const CTextureInfo& texture);
+   ~CGUITextureD3D() override = default;
+diff --git a/xbmc/guilib/GUITextureGL.cpp b/xbmc/guilib/GUITextureGL.cpp
+index d27256ffecf5c..00b7da12cdb8b 100644
+--- a/xbmc/guilib/GUITextureGL.cpp
++++ b/xbmc/guilib/GUITextureGL.cpp
+@@ -259,7 +259,7 @@ void CGUITextureGL::DrawQuad(const CRect& rect,
+                              UTILS::COLOR::Color color,
+                              CTexture* texture,
+                              const CRect* texCoords,
+-                             float depth)
++                             const float depth)
+ {
+   CRenderSystemGL *renderSystem = dynamic_cast<CRenderSystemGL*>(CServiceBroker::GetRenderSystem());
+   if (texture)
+diff --git a/xbmc/guilib/GUITextureGL.h b/xbmc/guilib/GUITextureGL.h
+index 9f7b4dd5ac58b..7d7fea1fc9bde 100644
+--- a/xbmc/guilib/GUITextureGL.h
++++ b/xbmc/guilib/GUITextureGL.h
+@@ -28,7 +28,7 @@ class CGUITextureGL : public CGUITexture
+                        UTILS::COLOR::Color color,
+                        CTexture* texture = nullptr,
+                        const CRect* texCoords = nullptr,
+-                       float depth = 1.0);
++                       const float depth = 1.0);
+ 
+   CGUITextureGL(float posX, float posY, float width, float height, const CTextureInfo& texture);
+   ~CGUITextureGL() override = default;
+diff --git a/xbmc/guilib/GUITextureGLES.cpp b/xbmc/guilib/GUITextureGLES.cpp
+index b68a9e07e16ad..ecee0a5b83315 100644
+--- a/xbmc/guilib/GUITextureGLES.cpp
++++ b/xbmc/guilib/GUITextureGLES.cpp
+@@ -238,7 +238,7 @@ void CGUITextureGLES::DrawQuad(const CRect& rect,
+                                UTILS::COLOR::Color color,
+                                CTexture* texture,
+                                const CRect* texCoords,
+-                               float depth)
++                               const float depth)
+ {
+   CRenderSystemGLES *renderSystem = dynamic_cast<CRenderSystemGLES*>(CServiceBroker::GetRenderSystem());
+   if (texture)
+diff --git a/xbmc/guilib/GUITextureGLES.h b/xbmc/guilib/GUITextureGLES.h
+index 482aa3fa19c80..bfda995cc7e20 100644
+--- a/xbmc/guilib/GUITextureGLES.h
++++ b/xbmc/guilib/GUITextureGLES.h
+@@ -37,7 +37,7 @@ class CGUITextureGLES : public CGUITexture
+                        UTILS::COLOR::Color color,
+                        CTexture* texture = nullptr,
+                        const CRect* texCoords = nullptr,
+-                       float depth = 1.0);
++                       const float depth = 1.0);
+ 
+   CGUITextureGLES(float posX, float posY, float width, float height, const CTextureInfo& texture);
+   ~CGUITextureGLES() override = default;
+
+From 1b8968e6456bd07d28cfac8fde623e37fcfcd119 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Thu, 16 Mar 2023 20:16:03 +0100
+Subject: [PATCH 14/23] Display opaque elements of the fullscreen window
+
+---
+ xbmc/video/windows/GUIWindowFullScreen.cpp | 21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
+
+diff --git a/xbmc/video/windows/GUIWindowFullScreen.cpp b/xbmc/video/windows/GUIWindowFullScreen.cpp
+index 2a89a536a38ac..cb66a5c6a829d 100644
+--- a/xbmc/video/windows/GUIWindowFullScreen.cpp
++++ b/xbmc/video/windows/GUIWindowFullScreen.cpp
+@@ -376,16 +376,19 @@ void CGUIWindowFullScreen::Process(unsigned int currentTime, CDirtyRegionList &d
+ 
+ void CGUIWindowFullScreen::Render()
+ {
+-  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() !=
+       RENDER_ORDER_FRONT_TO_BACK)
+-    return;
+-  CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderingResolution(CServiceBroker::GetWinSystem()->GetGfxContext().GetVideoResolution(), false);
+-  auto& components = CServiceBroker::GetAppComponents();
+-  const auto appPlayer = components.GetComponent<CApplicationPlayer>();
+-  // Tilers clear on frame start
+-  bool clear = !CServiceBroker::GetWinSystem()->GetRenderSystem()->IsTileBasedGPU();
+-  appPlayer->Render(clear, 255);
+-  CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderingResolution(m_coordsRes, m_needsScaling);
++  {
++    CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderingResolution(
++        CServiceBroker::GetWinSystem()->GetGfxContext().GetVideoResolution(), false);
++    auto& components = CServiceBroker::GetAppComponents();
++    const auto appPlayer = components.GetComponent<CApplicationPlayer>();
++    // Tilers clear on frame start
++    bool clear = !CServiceBroker::GetWinSystem()->GetRenderSystem()->IsTileBasedGPU();
++    appPlayer->Render(clear, 255);
++    CServiceBroker::GetWinSystem()->GetGfxContext().SetRenderingResolution(m_coordsRes,
++                                                                           m_needsScaling);
++  }
+   CGUIWindow::Render();
+ }
+ 
+
+From bf10c6f9226b20691f8668656ce5380afd2cc15b Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Tue, 21 Mar 2023 23:11:45 +0100
+Subject: [PATCH 15/23] Also render panel items front to back (first pass)
+
+---
+ xbmc/guilib/GUIBaseContainer.h    | 16 ++++++++--------
+ xbmc/guilib/GUIPanelContainer.cpp | 29 +++++++++++++++++++++++++----
+ 2 files changed, 33 insertions(+), 12 deletions(-)
+
+diff --git a/xbmc/guilib/GUIBaseContainer.h b/xbmc/guilib/GUIBaseContainer.h
+index f5a813beaee1b..ef1ad5f6ad63f 100644
+--- a/xbmc/guilib/GUIBaseContainer.h
++++ b/xbmc/guilib/GUIBaseContainer.h
+@@ -209,6 +209,14 @@ class CGUIBaseContainer : public IGUIContainer
+ 
+   unsigned int m_lastRenderTime;
+ 
++  struct RENDERITEM
++  {
++    float posX;
++    float posY;
++    CGUIListItemPtr item;
++    bool focused;
++  };
++
+ private:
+   bool OnContextMenu();
+ 
+@@ -234,14 +242,6 @@ class CGUIBaseContainer : public IGUIContainer
+   // early inertial scroll cancellation
+   bool m_waitForScrollEnd = false;
+   float m_lastScrollValue = 0.0f;
+-
+-  struct RENDERITEM
+-  {
+-    float posX;
+-    float posY;
+-    CGUIListItemPtr item;
+-    bool focused;
+-  };
+ };
+ 
+ 
+diff --git a/xbmc/guilib/GUIPanelContainer.cpp b/xbmc/guilib/GUIPanelContainer.cpp
+index 0195d57614d18..2a674fb55480a 100644
+--- a/xbmc/guilib/GUIPanelContainer.cpp
++++ b/xbmc/guilib/GUIPanelContainer.cpp
+@@ -113,6 +113,7 @@ void CGUIPanelContainer::Render()
+     CGUIListItemPtr focusedItem;
+     int current = (offset - cacheBefore) * m_itemsPerRow;
+     int col = 0;
++    std::vector<RENDERITEM> renderitems;
+     while (pos < end && m_items.size())
+     {
+       if (current >= (int)m_items.size())
+@@ -131,9 +132,11 @@ void CGUIPanelContainer::Render()
+         else
+         {
+           if (m_orientation == VERTICAL)
+-            RenderItem(origin.x + col * m_layout->Size(HORIZONTAL), pos, item.get(), false);
++            renderitems.emplace_back(
++                RENDERITEM{origin.x + col * m_layout->Size(HORIZONTAL), pos, item, false});
+           else
+-            RenderItem(pos, origin.y + col * m_layout->Size(VERTICAL), item.get(), false);
++            renderitems.emplace_back(
++                RENDERITEM{pos, origin.y + col * m_layout->Size(VERTICAL), item, false});
+         }
+       }
+       // increment our position
+@@ -150,9 +153,27 @@ void CGUIPanelContainer::Render()
+     if (focusedItem)
+     {
+       if (m_orientation == VERTICAL)
+-        RenderItem(origin.x + focusedCol * m_layout->Size(HORIZONTAL), focusedPos, focusedItem.get(), true);
++        renderitems.emplace_back(RENDERITEM{origin.x + focusedCol * m_layout->Size(HORIZONTAL),
++                                            focusedPos, focusedItem, true});
+       else
+-        RenderItem(focusedPos, origin.y + focusedCol * m_layout->Size(VERTICAL), focusedItem.get(), true);
++        renderitems.emplace_back(RENDERITEM{
++            focusedPos, origin.y + focusedCol * m_layout->Size(VERTICAL), focusedItem, true});
++    }
++
++    if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() ==
++        RENDER_ORDER_FRONT_TO_BACK)
++    {
++      for (auto it = std::crbegin(renderitems); it != std::crend(renderitems); it++)
++      {
++        RenderItem(it->posX, it->posY, it->item.get(), it->focused);
++      }
++    }
++    else
++    {
++      for (const auto& renderitem : renderitems)
++      {
++        RenderItem(renderitem.posX, renderitem.posY, renderitem.item.get(), renderitem.focused);
++      }
+     }
+ 
+     CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
+
+From 68881794582aa915b6da867209f9845b938caa60 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Wed, 22 Mar 2023 00:10:04 +0100
+Subject: [PATCH 16/23] GLES: Rename ShaderGetDepth() to GUIShaderGetDepth()
+
+---
+ xbmc/guilib/GUIFontTTFGLES.cpp           | 2 +-
+ xbmc/guilib/GUITextureGLES.cpp           | 4 ++--
+ xbmc/rendering/gles/RenderSystemGLES.cpp | 2 +-
+ xbmc/rendering/gles/RenderSystemGLES.h   | 2 +-
+ 4 files changed, 5 insertions(+), 5 deletions(-)
+ 
+diff --git a/xbmc/guilib/GUITextureGLES.cpp b/xbmc/guilib/GUITextureGLES.cpp
+index ecee0a5b83315..e5c14a64a987c 100644
+--- a/xbmc/guilib/GUITextureGLES.cpp
++++ b/xbmc/guilib/GUITextureGLES.cpp
+@@ -114,7 +114,7 @@ void CGUITextureGLES::End()
+     GLint tex0Loc = m_renderSystem->GUIShaderGetCoord0();
+     GLint tex1Loc = m_renderSystem->GUIShaderGetCoord1();
+     GLint uniColLoc = m_renderSystem->GUIShaderGetUniCol();
+-    GLint depthLoc = m_renderSystem->ShaderGetDepth();
++    GLint depthLoc = m_renderSystem->GUIShaderGetDepth();
+ 
+     if(uniColLoc >= 0)
+     {
+@@ -265,7 +265,7 @@ void CGUITextureGLES::DrawQuad(const CRect& rect,
+   GLint posLoc   = renderSystem->GUIShaderGetPos();
+   GLint tex0Loc  = renderSystem->GUIShaderGetCoord0();
+   GLint uniColLoc= renderSystem->GUIShaderGetUniCol();
+-  GLint depthLoc = renderSystem->ShaderGetDepth();
++  GLint depthLoc = renderSystem->GUIShaderGetDepth();
+ 
+   glVertexAttribPointer(posLoc,  3, GL_FLOAT, 0, 0, ver);
+   if (texture)
+diff --git a/xbmc/rendering/gles/RenderSystemGLES.cpp b/xbmc/rendering/gles/RenderSystemGLES.cpp
+index 605e6179ad94c..a71aa0cb05ef4 100644
+--- a/xbmc/rendering/gles/RenderSystemGLES.cpp
++++ b/xbmc/rendering/gles/RenderSystemGLES.cpp
+@@ -645,7 +645,7 @@ GLint CRenderSystemGLES::GUIShaderGetCoord1()
+   return -1;
+ }
+ 
+-GLint CRenderSystemGLES::ShaderGetDepth()
++GLint CRenderSystemGLES::GUIShaderGetDepth()
+ {
+   if (m_pShader[m_method])
+     return m_pShader[m_method]->GetDepthLoc();
+diff --git a/xbmc/rendering/gles/RenderSystemGLES.h b/xbmc/rendering/gles/RenderSystemGLES.h
+index 00576e29f001d..c8fc3b70bfcc7 100644
+--- a/xbmc/rendering/gles/RenderSystemGLES.h
++++ b/xbmc/rendering/gles/RenderSystemGLES.h
+@@ -128,7 +128,7 @@ class CRenderSystemGLES : public CRenderSystemBase
+   GLint GUIShaderGetContrast();
+   GLint GUIShaderGetBrightness();
+   GLint GUIShaderGetModel();
+-  GLint ShaderGetDepth();
++  GLint GUIShaderGetDepth();
+ 
+ protected:
+   virtual void SetVSyncImpl(bool enable) = 0;
+
+From fda43d59039f261854d4b1bf96f364d9cedcab80 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Wed, 22 Mar 2023 00:34:28 +0100
+Subject: [PATCH 17/23] GLES: set black bars/quad to the bottom depth
+
+---
+ xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+index 026348cf67b88..1a2e3249535aa 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/LinuxRendererGLES.cpp
+@@ -393,8 +393,10 @@ void CLinuxRendererGLES::ClearBackBufferQuad()
+   m_renderSystem->EnableGUIShader(ShaderMethodGLES::SM_DEFAULT);
+   GLint posLoc = m_renderSystem->GUIShaderGetPos();
+   GLint uniCol = m_renderSystem->GUIShaderGetUniCol();
++  GLint depthLoc = m_renderSystem->GUIShaderGetDepth();
+ 
+   glUniform4f(uniCol, m_clearColour / 255.0f, m_clearColour / 255.0f, m_clearColour / 255.0f, 1.0f);
++  glUniform1f(depthLoc, -1);
+ 
+   GLuint vertexVBO;
+   glGenBuffers(1, &vertexVBO);
+@@ -455,8 +457,10 @@ void CLinuxRendererGLES::DrawBlackBars()
+   renderSystem->EnableGUIShader(ShaderMethodGLES::SM_DEFAULT);
+   GLint posLoc = renderSystem->GUIShaderGetPos();
+   GLint uniCol = renderSystem->GUIShaderGetUniCol();
++  GLint depthLoc = m_renderSystem->GUIShaderGetDepth();
+ 
+   glUniform4f(uniCol, m_clearColour / 255.0f, m_clearColour / 255.0f, m_clearColour / 255.0f, 1.0f);
++  glUniform1f(depthLoc, -1);
+ 
+   GLuint vertexVBO;
+   glGenBuffers(1, &vertexVBO);
+
+From 5c3b5a55e10194e63547f5a21aa5af18e8ca1239 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Thu, 23 Mar 2023 15:28:03 +0100
+Subject: [PATCH 18/23] Fix retroplayer depth (untested)
+
+---
+ .../cores/RetroPlayer/rendering/RenderContext.cpp | 15 +++++++++++++++
+ xbmc/cores/RetroPlayer/rendering/RenderContext.h  |  1 +
+ .../rendering/VideoRenderers/RPRendererDMA.cpp    |  2 ++
+ .../VideoRenderers/RPRendererGuiTexture.cpp       |  4 ++++
+ .../rendering/VideoRenderers/RPRendererOpenGL.cpp |  2 ++
+ .../VideoRenderers/RPRendererOpenGLES.cpp         |  4 ++++
+ 6 files changed, 28 insertions(+)
+
+diff --git a/xbmc/cores/RetroPlayer/rendering/RenderContext.cpp b/xbmc/cores/RetroPlayer/rendering/RenderContext.cpp
+index 9be9c74fb6f7c..62d7580935b51 100644
+--- a/xbmc/cores/RetroPlayer/rendering/RenderContext.cpp
++++ b/xbmc/cores/RetroPlayer/rendering/RenderContext.cpp
+@@ -184,6 +184,21 @@ int CRenderContext::GUIShaderGetUniCol()
+   return -1;
+ }
+ 
++int CRenderContext::GUIShaderGetDepth()
++{
++#if defined(HAS_GL)
++  CRenderSystemGL* renderingGL = dynamic_cast<CRenderSystemGL*>(m_rendering);
++  if (renderingGL != nullptr)
++    return static_cast<int>(renderingGL->ShaderGetDepth());
++#elif HAS_GLES >= 2
++  CRenderSystemGLES* renderingGLES = dynamic_cast<CRenderSystemGLES*>(m_rendering);
++  if (renderingGLES != nullptr)
++    return static_cast<int>(renderingGLES->GUIShaderGetDepth());
++#endif
++
++  return -1;
++}
++
+ CGUIShaderDX* CRenderContext::GetGUIShader()
+ {
+ #if defined(HAS_DX)
+diff --git a/xbmc/cores/RetroPlayer/rendering/RenderContext.h b/xbmc/cores/RetroPlayer/rendering/RenderContext.h
+index de663a4ad992a..d2b1f0f2ae1fd 100644
+--- a/xbmc/cores/RetroPlayer/rendering/RenderContext.h
++++ b/xbmc/cores/RetroPlayer/rendering/RenderContext.h
+@@ -69,6 +69,7 @@ class CRenderContext
+   int GUIShaderGetPos();
+   int GUIShaderGetCoord0();
+   int GUIShaderGetUniCol();
++  int GUIShaderGetDepth();
+ 
+   // DirectX rendering functions
+   CGUIShaderDX* GetGUIShader();
+diff --git a/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererDMA.cpp b/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererDMA.cpp
+index 97a9eaa462f08..8b9886b835844 100644
+--- a/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererDMA.cpp
++++ b/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererDMA.cpp
+@@ -85,6 +85,7 @@ void CRPRendererDMA::Render(uint8_t alpha)
+   GLint vertLoc = m_context.GUIShaderGetPos();
+   GLint loc = m_context.GUIShaderGetCoord0();
+   GLint uniColLoc = m_context.GUIShaderGetUniCol();
++  GLint depthLoc = m_context.GUIShaderGetDepth();
+ 
+   // Setup color values
+   colour[0] = UTILS::GL::GetChannelFromARGB(UTILS::GL::ColorChannel::R, color);
+@@ -122,6 +123,7 @@ void CRPRendererDMA::Render(uint8_t alpha)
+ 
+   glUniform4f(uniColLoc, (colour[0] / 255.0f), (colour[1] / 255.0f), (colour[2] / 255.0f),
+               (colour[3] / 255.0f));
++  glUniform1f(depthLoc, -1.0f);
+   glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
+ 
+   glDisableVertexAttribArray(vertLoc);
+diff --git a/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererGuiTexture.cpp b/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererGuiTexture.cpp
+index f38e24006c3cf..7929140a8a518 100644
+--- a/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererGuiTexture.cpp
++++ b/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererGuiTexture.cpp
+@@ -184,6 +184,7 @@ void CRPRendererGuiTexture::RenderInternal(bool clear, uint8_t alpha)
+   GLint posLoc = m_context.GUIShaderGetPos();
+   GLint tex0Loc = m_context.GUIShaderGetCoord0();
+   GLint uniColLoc = m_context.GUIShaderGetUniCol();
++  GLint depthLoc = m_context.GUIShaderGetDepth();
+ 
+   glGenBuffers(1, &vertexVBO);
+   glBindBuffer(GL_ARRAY_BUFFER, vertexVBO);
+@@ -212,6 +213,7 @@ void CRPRendererGuiTexture::RenderInternal(bool clear, uint8_t alpha)
+ 
+   glUniform4f(uniColLoc, (colour[0] / 255.0f), (colour[1] / 255.0f), (colour[2] / 255.0f),
+               (colour[3] / 255.0f));
++  glUniform1f(depthLoc, -1.0f);
+ 
+   glGenBuffers(1, &indexVBO);
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexVBO);
+@@ -246,6 +248,7 @@ void CRPRendererGuiTexture::RenderInternal(bool clear, uint8_t alpha)
+   GLint posLoc = m_context.GUIShaderGetPos();
+   GLint tex0Loc = m_context.GUIShaderGetCoord0();
+   GLint uniColLoc = m_context.GUIShaderGetUniCol();
++  GLint depthLoc = m_context.GUIShaderGetDepth();
+ 
+   glVertexAttribPointer(posLoc, 3, GL_FLOAT, 0, 0, ver);
+   glVertexAttribPointer(tex0Loc, 2, GL_FLOAT, 0, 0, tex);
+@@ -275,6 +278,7 @@ void CRPRendererGuiTexture::RenderInternal(bool clear, uint8_t alpha)
+ 
+   glUniform4f(uniColLoc, (col[0] / 255.0f), (col[1] / 255.0f), (col[2] / 255.0f),
+               (col[3] / 255.0f));
++  glUniform1f(depthLoc, -1.0f);
+   glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, idx);
+ 
+   glDisableVertexAttribArray(posLoc);
+diff --git a/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGL.cpp b/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGL.cpp
+index 49ff7f8ca87b1..c3ac4218dd318 100644
+--- a/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGL.cpp
++++ b/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGL.cpp
+@@ -295,6 +295,7 @@ void CRPRendererOpenGL::Render(uint8_t alpha)
+   PackedVertex vertex[4];
+ 
+   GLint uniColLoc = m_context.GUIShaderGetUniCol();
++  GLint depthLoc = m_context.GUIShaderGetDepth();
+ 
+   // Setup color values
+   colour[0] = UTILS::GL::GetChannelFromARGB(UTILS::GL::ColorChannel::R, color);
+@@ -326,6 +327,7 @@ void CRPRendererOpenGL::Render(uint8_t alpha)
+ 
+   glUniform4f(uniColLoc, (colour[0] / 255.0f), (colour[1] / 255.0f), (colour[2] / 255.0f),
+               (colour[3] / 255.0f));
++  glUniform1f(depthLoc, -1.0f);
+ 
+   glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
+ 
+diff --git a/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGLES.cpp b/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGLES.cpp
+index b8e4259147d02..d120ff7862db5 100644
+--- a/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGLES.cpp
++++ b/xbmc/cores/RetroPlayer/rendering/VideoRenderers/RPRendererOpenGLES.cpp
+@@ -128,8 +128,10 @@ void CRPRendererOpenGLES::DrawBlackBars()
+   m_context.EnableGUIShader(GL_SHADER_METHOD::DEFAULT);
+   GLint posLoc = m_context.GUIShaderGetPos();
+   GLint uniCol = m_context.GUIShaderGetUniCol();
++  GLint depthLoc = m_context.GUIShaderGetDepth();
+ 
+   glUniform4f(uniCol, m_clearColour / 255.0f, m_clearColour / 255.0f, m_clearColour / 255.0f, 1.0f);
++  glUniform1f(depthLoc, -1.0f);
+ 
+   // top quad
+   if (m_rotatedDestCoords[0].y > 0.0f)
+@@ -268,6 +270,7 @@ void CRPRendererOpenGLES::Render(uint8_t alpha)
+   GLint vertLoc = m_context.GUIShaderGetPos();
+   GLint loc = m_context.GUIShaderGetCoord0();
+   GLint uniColLoc = m_context.GUIShaderGetUniCol();
++  GLint depthLoc = m_context.GUIShaderGetDepth();
+ 
+   // Setup color values
+   colour[0] = UTILS::GL::GetChannelFromARGB(UTILS::GL::ColorChannel::R, color);
+@@ -305,6 +308,7 @@ void CRPRendererOpenGLES::Render(uint8_t alpha)
+ 
+   glUniform4f(uniColLoc, (colour[0] / 255.0f), (colour[1] / 255.0f), (colour[2] / 255.0f),
+               (colour[3] / 255.0f));
++  glUniform1f(depthLoc, -1.0f);
+   glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
+ 
+   glDisableVertexAttribArray(vertLoc);
+
+From 465f3a2ff98341b161ab33c7796bb5f9b276e3b2 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Thu, 23 Mar 2023 15:29:06 +0100
+Subject: [PATCH 19/23] Add depth to Prime/MC renderers
+
+---
+ .../VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp      | 5 +++++
+ .../VideoRenderers/HwDecRender/RendererMediaCodec.cpp        | 2 ++
+ 2 files changed, 7 insertions(+)
+
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp
+index c41bdb48d4df2..28eb26338c8c7 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererDRMPRIMEGLES.cpp
+@@ -222,8 +222,10 @@ void CRendererDRMPRIMEGLES::DrawBlackBars()
+   renderSystem->EnableGUIShader(ShaderMethodGLES::SM_DEFAULT);
+   GLint posLoc = renderSystem->GUIShaderGetPos();
+   GLint uniCol = renderSystem->GUIShaderGetUniCol();
++  GLint depthLoc = renderSystem->GUIShaderGetDepth();
+ 
+   glUniform4f(uniCol, m_clearColour / 255.0f, m_clearColour / 255.0f, m_clearColour / 255.0f, 1.0f);
++  glUniform1f(depthLoc, -1.0f);
+ 
+   GLuint vertexVBO;
+   glGenBuffers(1, &vertexVBO);
+@@ -326,6 +328,7 @@ void CRendererDRMPRIMEGLES::Render(unsigned int flags, int index)
+ 
+   GLint vertLoc = renderSystem->GUIShaderGetPos();
+   GLint loc = renderSystem->GUIShaderGetCoord0();
++  GLint depthLoc = renderSystem->GUIShaderGetDepth();
+ 
+   // top left
+   vertex[0].x = m_rotatedDestCoords[0].x;
+@@ -372,6 +375,8 @@ void CRendererDRMPRIMEGLES::Render(unsigned int flags, int index)
+   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexVBO);
+   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLubyte) * 4, idx, GL_STATIC_DRAW);
+ 
++  glUniform1f(depthLoc, -1.0f);
++
+   glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, 0);
+ 
+   glDisableVertexAttribArray(vertLoc);
+diff --git a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodec.cpp b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodec.cpp
+index 8472c91f5ab3f..a140523e5c24e 100644
+--- a/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodec.cpp
++++ b/xbmc/cores/VideoPlayer/VideoRenderers/HwDecRender/RendererMediaCodec.cpp
+@@ -138,6 +138,8 @@ bool CRendererMediaCodec::RenderHook(int index)
+   glUniform1f(contrastLoc, m_videoSettings.m_Contrast * 0.02f);
+   GLint   brightnessLoc = renderSystem->GUIShaderGetBrightness();
+   glUniform1f(brightnessLoc, m_videoSettings.m_Brightness * 0.01f - 0.5f);
++  GLint depthLoc = renderSystem->GUIShaderGetDepth();
++  glUniform1f(depthLoc, -1.0f);
+ 
+   glUniformMatrix4fv(renderSystem->GUIShaderGetCoord0Matrix(), 1, GL_FALSE, m_textureMatrix);
+ 
+
+From cc9ffa1f42ed6e68cd2f00b701456a564f223dba Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Thu, 23 Mar 2023 15:29:31 +0100
+Subject: [PATCH 20/23] Add depth to slide show
+
+---
+ xbmc/pictures/SlideShowPicture.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/xbmc/pictures/SlideShowPicture.cpp b/xbmc/pictures/SlideShowPicture.cpp
+index 63ec8b9343248..e6b02b60a54c3 100644
+--- a/xbmc/pictures/SlideShowPicture.cpp
++++ b/xbmc/pictures/SlideShowPicture.cpp
+@@ -971,6 +971,7 @@ void CSlideShowPic::Render(float* x, float* y, CTexture* pTexture, UTILS::COLOR:
+   GLint posLoc  = renderSystem->GUIShaderGetPos();
+   GLint tex0Loc = renderSystem->GUIShaderGetCoord0();
+   GLint uniColLoc= renderSystem->GUIShaderGetUniCol();
++  GLint depthLoc = renderSystem->GUIShaderGetDepth();
+ 
+   glVertexAttribPointer(posLoc,  3, GL_FLOAT, 0, 0, ver);
+   glVertexAttribPointer(tex0Loc, 2, GL_FLOAT, 0, 0, tex);
+@@ -1005,6 +1006,7 @@ void CSlideShowPic::Render(float* x, float* y, CTexture* pTexture, UTILS::COLOR:
+   tex[2][1] = tex[3][1] = v2;
+ 
+   glUniform4f(uniColLoc,(col[0] / 255.0f), (col[1] / 255.0f), (col[2] / 255.0f), (col[3] / 255.0f));
++  glUniform1f(depthLoc, -1.0f);
+   glDrawElements(GL_TRIANGLE_STRIP, 4, GL_UNSIGNED_BYTE, idx);
+ 
+   glDisableVertexAttribArray(posLoc);
+
+From f35114df436dcc4dcaf1d3722fbce44f19945f41 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Thu, 23 Mar 2023 15:29:53 +0100
+Subject: [PATCH 21/23] Add depth to EPG grid
+
+---
+ xbmc/pvr/guilib/GUIEPGGridContainer.cpp | 83 +++++++++++++++++++++++--
+ xbmc/pvr/guilib/GUIEPGGridContainer.h   | 11 ++--
+ 2 files changed, 85 insertions(+), 9 deletions(-)
+
+diff --git a/xbmc/pvr/guilib/GUIEPGGridContainer.cpp b/xbmc/pvr/guilib/GUIEPGGridContainer.cpp
+index d88dc86692c6f..aed6138719e3f 100644
+--- a/xbmc/pvr/guilib/GUIEPGGridContainer.cpp
++++ b/xbmc/pvr/guilib/GUIEPGGridContainer.cpp
+@@ -2124,7 +2124,7 @@ void CGUIEPGGridContainer::GetProgrammeCacheOffsets(int& cacheBefore, int& cache
+   }
+ }
+ 
+-void CGUIEPGGridContainer::HandleChannels(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions)
++void CGUIEPGGridContainer::HandleChannels(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions, bool bAssignDepth)
+ {
+   if (!m_focusedChannelLayout || !m_channelLayout)
+     return;
+@@ -2205,6 +2205,13 @@ void CGUIEPGGridContainer::HandleChannels(bool bRender, unsigned int currentTime
+             RenderItem(pos, originChannel.y, item.get(), false);
+         }
+       }
++      else if (bAssignDepth)
++      {
++        if (focused)
++          focusedItem = item;
++        else
++          AssignItemDepth(item.get(), false);
++      }
+       else
+       {
+         // process our item
+@@ -2232,9 +2239,13 @@ void CGUIEPGGridContainer::HandleChannels(bool bRender, unsigned int currentTime
+ 
+     CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
+   }
++  else if (bAssignDepth && focusedItem)
++  {
++    AssignItemDepth(focusedItem.get(), true);
++  }
+ }
+ 
+-void CGUIEPGGridContainer::HandleRulerDate(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions)
++void CGUIEPGGridContainer::HandleRulerDate(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions, bool bAssignDepth)
+ {
+   if (!m_rulerDateLayout || m_gridModel->RulerItemsSize() <= 1 || m_gridModel->IsZeroGridDuration())
+     return;
+@@ -2248,6 +2259,10 @@ void CGUIEPGGridContainer::HandleRulerDate(bool bRender, unsigned int currentTim
+     RenderItem(m_posX, m_posY, item.get(), false);
+     CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
+   }
++  else if (bAssignDepth)
++  {
++    AssignItemDepth(item.get(), false);
++  }
+   else
+   {
+     const int rulerOffset = GetProgrammeScrollOffset();
+@@ -2258,7 +2273,7 @@ void CGUIEPGGridContainer::HandleRulerDate(bool bRender, unsigned int currentTim
+   }
+ }
+ 
+-void CGUIEPGGridContainer::HandleRuler(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions)
++void CGUIEPGGridContainer::HandleRuler(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions, bool bAssignDepth)
+ {
+   if (!m_rulerLayout || m_gridModel->RulerItemsSize() <= 1 || m_gridModel->IsZeroGridDuration())
+     return;
+@@ -2287,6 +2302,12 @@ void CGUIEPGGridContainer::HandleRuler(bool bRender, unsigned int currentTime, C
+     else
+       CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_rulerPosX, m_rulerPosY, m_rulerWidth, m_gridHeight);
+   }
++  else if (bAssignDepth)
++  {
++    if (!m_rulerDateLayout)
++      AssignItemDepth(item.get(), false);
++    GetProgrammeCacheOffsets(cacheBeforeRuler, cacheAfterRuler);
++  }
+   else
+   {
+     if (!m_rulerDateLayout)
+@@ -2345,6 +2366,8 @@ void CGUIEPGGridContainer::HandleRuler(bool bRender, unsigned int currentTime, C
+     {
+       if (bRender)
+         RenderItem(pos, originRuler.y, item.get(), false);
++      else if (bAssignDepth)
++        AssignItemDepth(item.get(), false);
+       else
+         ProcessItem(pos, originRuler.y, item, lastitem, false, m_rulerLayout, m_rulerLayout, currentTime, dirtyregions, m_rulerWidth);
+ 
+@@ -2354,6 +2377,8 @@ void CGUIEPGGridContainer::HandleRuler(bool bRender, unsigned int currentTime, C
+     {
+       if (bRender)
+         RenderItem(originRuler.x, pos, item.get(), false);
++      else if (bAssignDepth)
++        AssignItemDepth(item.get(), false);
+       else
+         ProcessItem(originRuler.x, pos, item, lastitem, false, m_rulerLayout, m_rulerLayout, currentTime, dirtyregions, m_rulerHeight);
+ 
+@@ -2367,7 +2392,7 @@ void CGUIEPGGridContainer::HandleRuler(bool bRender, unsigned int currentTime, C
+     CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
+ }
+ 
+-void CGUIEPGGridContainer::HandleProgrammeGrid(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions)
++void CGUIEPGGridContainer::HandleProgrammeGrid(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions, bool bAssignDepth)
+ {
+   if (!m_focusedProgrammeLayout || !m_programmeLayout || m_gridModel->RulerItemsSize() <= 1 || m_gridModel->IsZeroGridDuration())
+     return;
+@@ -2382,7 +2407,7 @@ void CGUIEPGGridContainer::HandleProgrammeGrid(bool bRender, unsigned int curren
+   {
+     CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_gridPosX, m_gridPosY, m_gridWidth, m_gridHeight);
+   }
+-  else
++  else if (!bAssignDepth)
+   {
+     int cacheBeforeChannel, cacheAfterChannel;
+     GetChannelCacheOffsets(cacheBeforeChannel, cacheAfterChannel);
+@@ -2494,6 +2519,24 @@ void CGUIEPGGridContainer::HandleProgrammeGrid(bool bRender, unsigned int curren
+               RenderItem(posB, posA2, item.get(), focused);
+           }
+         }
++        else if (bAssignDepth)
++        {
++          // reset to grid start position if first item is out of grid view
++          if (posA2 < posA)
++            posA2 = posA;
++
++          // render our item
++          if (focused)
++          {
++            focusedPosX = posA2;
++            focusedPosY = posB;
++            focusedItem = item;
++          }
++          else
++          {
++            AssignItemDepth(item.get(), focused);
++          }
++        }
+         else
+         {
+           // calculate the size to truncate if item is out of grid view
+@@ -2546,4 +2589,34 @@ void CGUIEPGGridContainer::HandleProgrammeGrid(bool bRender, unsigned int curren
+ 
+     CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
+   }
++  else if (bAssignDepth && focusedItem)
++  {
++    AssignItemDepth(focusedItem.get(), true);
++  }
++}
++
++void CGUIEPGGridContainer::AssignDepth()
++{
++  unsigned int dummyTime = 0;
++  CDirtyRegionList dummyRegions;
++  HandleChannels(false, dummyTime, dummyRegions, true);
++  HandleRuler(false, dummyTime, dummyRegions, true);
++  HandleRulerDate(false, dummyTime, dummyRegions, true);
++  HandleProgrammeGrid(false, dummyTime, dummyRegions, true);
+ }
++
++void CGUIEPGGridContainer::AssignItemDepth(CGUIListItem* item, bool focused)
++{
++  if (focused)
++  {
++    if (item->GetFocusedLayout())
++      item->GetFocusedLayout()->AssignDepth();
++  }
++  else
++  {
++    if (item->GetFocusedLayout() && item->GetFocusedLayout()->IsAnimating(ANIM_TYPE_UNFOCUS))
++      item->GetFocusedLayout()->AssignDepth();
++    else if (item->GetLayout())
++      item->GetLayout()->AssignDepth();
++  }
++}
+\ No newline at end of file
+diff --git a/xbmc/pvr/guilib/GUIEPGGridContainer.h b/xbmc/pvr/guilib/GUIEPGGridContainer.h
+index 360ade9eb66f3..33c8dfdabc600 100644
+--- a/xbmc/pvr/guilib/GUIEPGGridContainer.h
++++ b/xbmc/pvr/guilib/GUIEPGGridContainer.h
+@@ -128,6 +128,9 @@ namespace PVR
+      */
+     bool SetChannel(const CPVRChannelNumber& channelNumber);
+ 
++  virtual void AssignDepth() override;
++  
++  void AssignItemDepth(CGUIListItem* item, bool focused);
+   private:
+     bool OnClick(int actionID);
+     bool SelectItemFromPoint(const CPoint& point, bool justGrid = true);
+@@ -201,10 +204,10 @@ namespace PVR
+     bool OnMouseDoubleClick(int dwButton, const CPoint& point);
+     bool OnMouseWheel(char wheel, const CPoint& point);
+ 
+-    void HandleChannels(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions);
+-    void HandleRuler(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions);
+-    void HandleRulerDate(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions);
+-    void HandleProgrammeGrid(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions);
++    void HandleChannels(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions, bool bAssignDepth = false);
++    void HandleRuler(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions, bool bAssignDepth = false);
++    void HandleRulerDate(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions, bool bAssignDepth = false);
++    void HandleProgrammeGrid(bool bRender, unsigned int currentTime, CDirtyRegionList& dirtyregions, bool bAssignDepth = false);
+ 
+     float GetCurrentTimePositionOnPage() const;
+     float GetProgressIndicatorWidth() const;
+
+From 05e1c64f327a888bb67126c8a6822951bb442a90 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Thu, 23 Mar 2023 16:05:20 +0100
+Subject: [PATCH 22/23] Fix EPG indicator
+
+---
+ xbmc/guilib/GUITexture.cpp              | 8 ++++++--
+ xbmc/guilib/GUITexture.h                | 2 +-
+ xbmc/pvr/guilib/GUIEPGGridContainer.cpp | 3 ++-
+ xbmc/pvr/guilib/GUIEPGGridContainer.h   | 2 ++
+ xbmc/windowing/GraphicContext.cpp       | 8 ++++++++
+ xbmc/windowing/GraphicContext.h         | 6 ++++++
+ 6 files changed, 25 insertions(+), 4 deletions(-)
+
+diff --git a/xbmc/guilib/GUITexture.cpp b/xbmc/guilib/GUITexture.cpp
+index 35075e8217a81..2d75a0efed9c6 100644
+--- a/xbmc/guilib/GUITexture.cpp
++++ b/xbmc/guilib/GUITexture.cpp
+@@ -15,6 +15,7 @@
+ #include "utils/StringUtils.h"
+ #include "windowing/GraphicContext.h"
+ 
++#include <cstdint>
+ #include <stdexcept>
+ 
+ CreateGUITextureFunc CGUITexture::m_createGUITextureFunc;
+@@ -169,7 +170,7 @@ bool CGUITexture::Process(unsigned int currentTime)
+   return changed;
+ }
+ 
+-void CGUITexture::Render(int32_t depthOffset)
++void CGUITexture::Render(int32_t depthOffset, int32_t overrideDepth)
+ {
+   if (!m_visible || !m_texture.size())
+     return;
+@@ -185,7 +186,10 @@ void CGUITexture::Render(int32_t depthOffset)
+ 
+   color = CServiceBroker::GetWinSystem()->GetGfxContext().MergeColor(color);
+ 
+-  m_depth = CServiceBroker::GetWinSystem()->GetGfxContext().GetTransformDepth(depthOffset);
++  if (overrideDepth >= 0)
++    m_depth = CServiceBroker::GetWinSystem()->GetGfxContext().GetNormalizedDepth(overrideDepth + depthOffset);
++  else
++    m_depth = CServiceBroker::GetWinSystem()->GetGfxContext().GetTransformDepth(depthOffset);
+ 
+   bool hasAlpha =
+       (((color >> 24) & 0xFF) != 0xFF || m_texture.m_textures[m_currentFrame]->HasAlpha());
+diff --git a/xbmc/guilib/GUITexture.h b/xbmc/guilib/GUITexture.h
+index 57221f8b0bff9..4d1df58f15183 100644
+--- a/xbmc/guilib/GUITexture.h
++++ b/xbmc/guilib/GUITexture.h
+@@ -89,7 +89,7 @@ class CGUITexture
+                        const float depth = 1.0);
+ 
+   bool Process(unsigned int currentTime);
+-  void Render(int32_t depthOffset = 0);
++  void Render(int32_t depthOffset = 0, int32_t overrideDepth = -1);
+ 
+   void DynamicResourceAlloc(bool bOnOff);
+   bool AllocResources();
+diff --git a/xbmc/pvr/guilib/GUIEPGGridContainer.cpp b/xbmc/pvr/guilib/GUIEPGGridContainer.cpp
+index aed6138719e3f..606593b0ffe39 100644
+--- a/xbmc/pvr/guilib/GUIEPGGridContainer.cpp
++++ b/xbmc/pvr/guilib/GUIEPGGridContainer.cpp
+@@ -350,7 +350,7 @@ void CGUIEPGGridContainer::RenderProgressIndicator()
+   if (CServiceBroker::GetWinSystem()->GetGfxContext().SetClipRegion(m_rulerPosX, m_rulerPosY, GetProgressIndicatorWidth(), GetProgressIndicatorHeight()))
+   {
+     m_guiProgressIndicatorTexture->SetDiffuseColor(m_diffuseColor);
+-    m_guiProgressIndicatorTexture->Render();
++    m_guiProgressIndicatorTexture->Render(0, m_guiProgressIndicatorTextureDepth);
+     CServiceBroker::GetWinSystem()->GetGfxContext().RestoreClipRegion();
+   }
+ }
+@@ -2603,6 +2603,7 @@ void CGUIEPGGridContainer::AssignDepth()
+   HandleRuler(false, dummyTime, dummyRegions, true);
+   HandleRulerDate(false, dummyTime, dummyRegions, true);
+   HandleProgrammeGrid(false, dummyTime, dummyRegions, true);
++  m_guiProgressIndicatorTextureDepth = CServiceBroker::GetWinSystem()->GetGfxContext().GetDepth();
+ }
+ 
+ void CGUIEPGGridContainer::AssignItemDepth(CGUIListItem* item, bool focused)
+diff --git a/xbmc/pvr/guilib/GUIEPGGridContainer.h b/xbmc/pvr/guilib/GUIEPGGridContainer.h
+index 33c8dfdabc600..509ea20aac232 100644
+--- a/xbmc/pvr/guilib/GUIEPGGridContainer.h
++++ b/xbmc/pvr/guilib/GUIEPGGridContainer.h
+@@ -16,6 +16,7 @@
+ #include "threads/CriticalSection.h"
+ #include "utils/Geometry.h"
+ 
++#include <cstdint>
+ #include <memory>
+ #include <string>
+ #include <utility>
+@@ -251,6 +252,7 @@ namespace PVR
+     float m_analogScrollCount;
+ 
+     std::unique_ptr<CGUITexture> m_guiProgressIndicatorTexture;
++    uint32_t m_guiProgressIndicatorTextureDepth{0};
+ 
+     std::shared_ptr<CFileItem> m_lastItem;
+     std::shared_ptr<CFileItem> m_lastChannel;
+diff --git a/xbmc/windowing/GraphicContext.cpp b/xbmc/windowing/GraphicContext.cpp
+index c6ba73ec91df6..6775ce232add6 100644
+--- a/xbmc/windowing/GraphicContext.cpp
++++ b/xbmc/windowing/GraphicContext.cpp
+@@ -829,6 +829,14 @@ void CGraphicContext::RestoreStereoFactor()
+   UpdateCameraPosition(m_cameras.top(), m_stereoFactors.top());
+ }
+ 
++float CGraphicContext::GetNormalizedDepth(uint32_t depth)
++{
++  float normalizedDepth = static_cast<float>(depth);
++  normalizedDepth /= m_layer;
++  normalizedDepth = normalizedDepth * 2 - 1;
++  return normalizedDepth;
++}
++
+ float CGraphicContext::GetTransformDepth(int32_t depthOffset)
+ {
+   float depth = static_cast<float>(m_finalTransform.matrix.depth + depthOffset);
+diff --git a/xbmc/windowing/GraphicContext.h b/xbmc/windowing/GraphicContext.h
+index cb46525deafe1..6379f0e940782 100644
+--- a/xbmc/windowing/GraphicContext.h
++++ b/xbmc/windowing/GraphicContext.h
+@@ -15,6 +15,7 @@
+ #include "utils/Geometry.h" // for CRect/CPoint
+ #include "utils/TransformMatrix.h" // for the members m_guiTransform etc.
+ 
++#include <cstdint>
+ #include <map>
+ #include <stack>
+ #include <string>
+@@ -163,6 +164,11 @@ class CGraphicContext : public CCriticalSection
+    \returns float normalized -1 to 1
+    */
+   float GetTransformDepth(int32_t depthOffset = 0);
++  /*! \brief Gets the (normalized) depth information 
++   \param depth to be normalized
++   \returns float normalized -1 to 1
++   */
++  float GetNormalizedDepth(uint32_t depth);
+   /*! \brief Set a region in which to clip all rendering
+    Anything that is rendered after setting a clip region will be clipped so that no part renders
+    outside of the clip region.  Successive calls to SetClipRegion intersect the clip region, which
+
+From 481d9a45ff80873b604e516be659dc1bb7f02e3c Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Thu, 23 Mar 2023 16:10:22 +0100
+Subject: [PATCH 23/23] Set coarse front to back order for EPG elements
+
+---
+ xbmc/pvr/guilib/GUIEPGGridContainer.cpp | 21 ++++++++++++++++-----
+ 1 file changed, 16 insertions(+), 5 deletions(-)
+
+diff --git a/xbmc/pvr/guilib/GUIEPGGridContainer.cpp b/xbmc/pvr/guilib/GUIEPGGridContainer.cpp
+index 606593b0ffe39..318bdebab4527 100644
+--- a/xbmc/pvr/guilib/GUIEPGGridContainer.cpp
++++ b/xbmc/pvr/guilib/GUIEPGGridContainer.cpp
+@@ -241,11 +241,22 @@ void CGUIEPGGridContainer::Process(unsigned int currentTime, CDirtyRegionList& d
+ 
+ void CGUIEPGGridContainer::Render()
+ {
+-  RenderChannels();
+-  RenderRulerDate();
+-  RenderRuler();
+-  RenderProgrammeGrid();
+-  RenderProgressIndicator();
++  if (CServiceBroker::GetWinSystem()->GetGfxContext().GetRenderOrder() == RENDER_ORDER_FRONT_TO_BACK)
++  {
++    RenderProgressIndicator();
++    RenderProgrammeGrid();
++    RenderRuler();
++    RenderRulerDate();
++    RenderChannels();
++  }
++  else
++  {
++    RenderChannels();
++    RenderRulerDate();
++    RenderRuler();
++    RenderProgrammeGrid();
++    RenderProgressIndicator();
++  }
+ 
+   CGUIControl::Render();
+ }
+
+--- xbmc-20.1-Nexus/xbmc/guilib/GUIFontTTFGL.cpp        2023-03-11 23:16:38.000000000 +0100
++++ xbmc-20.1-new/xbmc/guilib/GUIFontTTFGL.cpp  2023-03-22 17:15:15.100335371 +0100
+@@ -195,7 +195,7 @@
+   GLint colLoc = renderSystem->GUIShaderGetCol();
+   GLint tex0Loc = renderSystem->GUIShaderGetCoord0();
+   GLint modelLoc = renderSystem->GUIShaderGetModel();
+-
++  GLint depthLoc = renderSystem->GUIShaderGetDepth();
+ 
+   CreateStaticVertexBuffers();
+ 
+@@ -229,6 +229,8 @@
+                           reinterpret_cast<char*>(vertices) + offsetof(SVertex, r));
+     glVertexAttribPointer(tex0Loc, 2, GL_FLOAT, GL_FALSE, sizeof(SVertex),
+                           reinterpret_cast<char*>(vertices) + offsetof(SVertex, u));
++    float depth = CServiceBroker::GetWinSystem()->GetGfxContext().GetTransformDepth();
++    glUniform1f(depthLoc, depth);
+ 
+     glDrawArrays(GL_TRIANGLES, 0, vecVertices.size());
+   }

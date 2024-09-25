@@ -1,0 +1,12 @@
+diff -ruPN xbmc-20.1-Nexus/addons/skin.estuary/xml/Includes_Animations.xml xbmc-new/addons/skin.estuary/xml/Includes_Animations.xml
+--- xbmc-20.1-Nexus/addons/skin.estuary/xml/Includes_Animations.xml	2023-03-11 23:16:38.000000000 +0100
++++ xbmc-new/addons/skin.estuary/xml/Includes_Animations.xml	2023-12-26 10:14:01.779776173 +0100
+@@ -42,7 +42,7 @@
+ 	<include name="Vis_FadeSlide_Right_Delayed">
+ 		<animation type="Conditional" condition="String.IsEqual(Container(9000).ListItem.Property(id),$PARAM[id])">
+ 			<effect type="fade" start="0" end="100" time="300" tween="sine" delay="300" easing="out" />
+-			<effect type="slide" start="320" end="0" time="400" delay="300" tween="cubic" easing="out" />
++			<effect type="slide" start="320" end="0" time="300" delay="300" tween="cubic" easing="out" />
+ 		</animation>
+ 		<animation type="Hidden">
+ 			<effect type="fade" start="100" end="0" time="300" tween="sine" easing="out" />

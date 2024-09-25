@@ -1,0 +1,510 @@
+From d21811cb5744d3e13a965fa9b08bbfcdf7820722 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Sat, 18 Mar 2023 02:31:59 +0100
+Subject: [PATCH 1/2] Fix/improve dirty regions on GBM/X11/Wayland
+
+---
+ xbmc/application/Application.cpp              |  5 +-
+ xbmc/guilib/DirtyRegionTracker.cpp            |  9 ++-
+ xbmc/guilib/DirtyRegionTracker.h              |  9 +--
+ xbmc/guilib/GUIWindowManager.cpp              |  7 ++
+ xbmc/settings/AdvancedSettings.cpp            |  1 +
+ xbmc/settings/AdvancedSettings.h              |  1 +
+ xbmc/utils/EGLUtils.cpp                       | 65 +++++++++++++++----
+ xbmc/utils/EGLUtils.h                         |  8 +++
+ xbmc/windowing/WinSystem.h                    | 27 ++++++++
+ xbmc/windowing/X11/GLContext.h                |  1 +
+ xbmc/windowing/X11/GLContextEGL.cpp           |  8 +++
+ xbmc/windowing/X11/GLContextEGL.h             |  2 +
+ xbmc/windowing/X11/WinSystemX11GLContext.h    |  6 +-
+ xbmc/windowing/X11/WinSystemX11GLESContext.h  |  3 +
+ xbmc/windowing/gbm/WinSystemGbmEGLContext.h   |  7 ++
+ xbmc/windowing/ios/WinSystemIOS.h             |  2 +
+ .../wayland/WinSystemWaylandEGLContext.h      |  7 ++
+ 17 files changed, 141 insertions(+), 27 deletions(-)
+
+diff --git a/xbmc/application/Application.cpp b/xbmc/application/Application.cpp
+index dfe51add08e62..e936d982871b8 100644
+--- a/xbmc/application/Application.cpp
++++ b/xbmc/application/Application.cpp
+@@ -908,8 +908,6 @@ void CApplication::Render()
+     {
+       hasRendered |= CServiceBroker::GetGUI()->GetWindowManager().Render();
+     }
+-    // execute post rendering actions (finalize window closing)
+-    CServiceBroker::GetGUI()->GetWindowManager().AfterRender();
+ 
+     m_lastRenderTime = std::chrono::steady_clock::now();
+   }
+@@ -934,6 +932,9 @@ void CApplication::Render()
+   CServiceBroker::GetWinSystem()->GetGfxContext().Flip(hasRendered,
+                                                        appPlayer->IsRenderingVideoLayer());
+ 
++  if (appPower->GetRenderGUI() && !m_skipGuiRender)
++    CServiceBroker::GetGUI()->GetWindowManager().AfterRender();
++
+   CTimeUtils::UpdateFrameTime(hasRendered);
+ }
+ 
+diff --git a/xbmc/guilib/DirtyRegionTracker.cpp b/xbmc/guilib/DirtyRegionTracker.cpp
+index 398d455031989..6feebf96557e6 100644
+--- a/xbmc/guilib/DirtyRegionTracker.cpp
++++ b/xbmc/guilib/DirtyRegionTracker.cpp
+@@ -13,13 +13,13 @@
+ #include "settings/AdvancedSettings.h"
+ #include "settings/SettingsComponent.h"
+ #include "utils/log.h"
++#include "windowing/WinSystem.h"
+ 
+ #include <algorithm>
+ #include <stdio.h>
+
+-CDirtyRegionTracker::CDirtyRegionTracker(int buffering)
++CDirtyRegionTracker::CDirtyRegionTracker()
+ {
+-  m_buffering = buffering;
+   m_solver = NULL;
+ }
+ 
+@@ -76,7 +76,10 @@ CDirtyRegionList CDirtyRegionTracker::GetDirtyRegions()
+ 
+ void CDirtyRegionTracker::CleanMarkedRegions()
+ {
+-  int buffering = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiVisualizeDirtyRegions ? 20 : m_buffering;
++  int32_t buffering = CServiceBroker::GetWinSystem()->GetBufferAge() + 1;
++  if (CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiVisualizeDirtyRegions)
++    buffering = 20;
++
+   m_markedRegions.erase(
+       std::remove_if(m_markedRegions.begin(), m_markedRegions.end(),
+                      [buffering](CDirtyRegion& r) { return r.UpdateAge() >= buffering; }),
+diff --git a/xbmc/guilib/DirtyRegionTracker.h b/xbmc/guilib/DirtyRegionTracker.h
+index 697cb6405f6db..75abe589591ef 100644
+--- a/xbmc/guilib/DirtyRegionTracker.h
++++ b/xbmc/guilib/DirtyRegionTracker.h
+@@ -10,16 +10,10 @@
+ 
+ #include "IDirtyRegionSolver.h"
+ 
+-#if defined(TARGET_DARWIN_EMBEDDED)
+-#define DEFAULT_BUFFERING 4
+-#else
+-#define DEFAULT_BUFFERING 3
+-#endif
+-
+ class CDirtyRegionTracker
+ {
+ public:
+-  explicit CDirtyRegionTracker(int buffering = DEFAULT_BUFFERING);
++  explicit CDirtyRegionTracker();
+   ~CDirtyRegionTracker();
+   void SelectAlgorithm();
+   void MarkDirtyRegion(const CDirtyRegion &region);
+@@ -30,6 +24,5 @@ class CDirtyRegionTracker
+ 
+ private:
+   CDirtyRegionList m_markedRegions;
+-  int m_buffering;
+   IDirtyRegionSolver *m_solver;
+ };
+diff --git a/xbmc/guilib/GUIWindowManager.cpp b/xbmc/guilib/GUIWindowManager.cpp
+index f15489e00e07f..f9b60279e23d4 100644
+--- a/xbmc/guilib/GUIWindowManager.cpp
++++ b/xbmc/guilib/GUIWindowManager.cpp
+@@ -1297,6 +1297,13 @@ bool CGUIWindowManager::Render()
+       hasRendered = true;
+     }
+   }
++  else if (CServiceBroker::GetWinSystem()->HasDamagedRegionSupport() &&
++           CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiHardwareDirtyRegions)
++  {
++    CServiceBroker::GetWinSystem()->SetDamagedRegions(dirtyRegions);
++    RenderPass();
++    hasRendered = true;
++  }
+   else
+   {
+     for (const auto& i : dirtyRegions)
+diff --git a/xbmc/settings/AdvancedSettings.cpp b/xbmc/settings/AdvancedSettings.cpp
+index 7fde2f16867f6..d7e5b2e92cc30 100644
+--- a/xbmc/settings/AdvancedSettings.cpp
++++ b/xbmc/settings/AdvancedSettings.cpp
+@@ -1242,6 +1242,7 @@ void CAdvancedSettings::ParseSettingsFile(const std::string &file)
+   {
+     XMLUtils::GetBoolean(pElement, "visualizedirtyregions", m_guiVisualizeDirtyRegions);
+     XMLUtils::GetInt(pElement, "algorithmdirtyregions",     m_guiAlgorithmDirtyRegions);
++    XMLUtils::GetBoolean(pElement, "hardwaredirtyregions", m_guiHardwareDirtyRegions);
+     XMLUtils::GetBoolean(pElement, "smartredraw", m_guiSmartRedraw);
+   }
+ 
+diff --git a/xbmc/settings/AdvancedSettings.h b/xbmc/settings/AdvancedSettings.h
+index 4ba4e7e8b075e..94df7f24e385b 100644
+--- a/xbmc/settings/AdvancedSettings.h
++++ b/xbmc/settings/AdvancedSettings.h
+@@ -340,6 +340,7 @@ class CAdvancedSettings : public ISettingCallback, public ISettingsHandler
+ 
+     bool m_guiVisualizeDirtyRegions;
+     int  m_guiAlgorithmDirtyRegions;
++    bool m_guiHardwareDirtyRegions{false};
+     bool m_guiSmartRedraw;
+     unsigned int m_addonPackageFolderSize;
+ 
+diff --git a/xbmc/utils/EGLUtils.cpp b/xbmc/utils/EGLUtils.cpp
+index 7c5e70938fea2..70be4a15ee5d9 100644
+--- a/xbmc/utils/EGLUtils.cpp
++++ b/xbmc/utils/EGLUtils.cpp
+@@ -12,8 +12,10 @@
+ #include "StringUtils.h"
+ #include "guilib/IDirtyRegionSolver.h"
+ #include "log.h"
++#include "rendering/RenderSystem.h"
+ #include "settings/AdvancedSettings.h"
+ #include "settings/SettingsComponent.h"
++#include "windowing/WinSystem.h"
+ 
+ #include <map>
+ 
+@@ -185,6 +187,8 @@ CEGLContextUtils::CEGLContextUtils(EGLenum platform, std::string const& platform
+   }
+ 
+   m_platformSupported = CEGLUtils::HasClientExtension("EGL_EXT_platform_base") && CEGLUtils::HasClientExtension(platformExtension);
++  m_eglSetDamageRegionKHR =
++      (PFNEGLSETDAMAGEREGIONKHRPROC)eglGetProcAddress("eglSetDamageRegionKHR");
+ }
+ 
+ bool CEGLContextUtils::IsPlatformSupported() const
+@@ -290,11 +294,6 @@ bool CEGLContextUtils::ChooseConfig(EGLint renderableType, EGLint visualId, bool
+   }
+ 
+   EGLint surfaceType = EGL_WINDOW_BIT;
+-  // for the non-trivial dirty region modes, we need the EGL buffer to be preserved across updates
+-  int guiAlgorithmDirtyRegions = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiAlgorithmDirtyRegions;
+-  if (guiAlgorithmDirtyRegions == DIRTYREGION_SOLVER_COST_REDUCTION ||
+-      guiAlgorithmDirtyRegions == DIRTYREGION_SOLVER_UNION)
+-    surfaceType |= EGL_SWAP_BEHAVIOR_PRESERVED_BIT;
+ 
+   CEGLAttributesVec attribs;
+   attribs.Add({{EGL_RED_SIZE, 8},
+@@ -454,15 +453,10 @@ void CEGLContextUtils::SurfaceAttrib()
+     throw std::logic_error("Setting surface attributes requires a surface");
+   }
+ 
+-  // for the non-trivial dirty region modes, we need the EGL buffer to be preserved across updates
+-  int guiAlgorithmDirtyRegions = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiAlgorithmDirtyRegions;
+-  if (guiAlgorithmDirtyRegions == DIRTYREGION_SOLVER_COST_REDUCTION ||
+-      guiAlgorithmDirtyRegions == DIRTYREGION_SOLVER_UNION)
++  if (eglSurfaceAttrib(m_eglDisplay, m_eglSurface, EGL_SWAP_BEHAVIOR, EGL_BUFFER_DESTROYED) !=
++      EGL_TRUE)
+   {
+-    if (eglSurfaceAttrib(m_eglDisplay, m_eglSurface, EGL_SWAP_BEHAVIOR, EGL_BUFFER_PRESERVED) != EGL_TRUE)
+-    {
+-      CEGLUtils::Log(LOGERROR, "failed to set EGL_BUFFER_PRESERVED swap behavior");
+-    }
++    CEGLUtils::Log(LOGERROR, "failed to set EGL_BUFFER_DESTROYED swap behavior");
+   }
+ }
+ 
+@@ -596,3 +590,48 @@ bool CEGLContextUtils::TrySwapBuffers()
+ 
+   return (eglSwapBuffers(m_eglDisplay, m_eglSurface) == EGL_TRUE);
+ }
++
++int32_t CEGLContextUtils::GetBufferAge()
++{
++  int32_t bufferAge = 2;
++  if (CEGLUtils::HasExtension(m_eglDisplay, "EGL_KHR_partial_update"))
++    eglQuerySurface(m_eglDisplay, m_eglSurface, EGL_BUFFER_AGE_KHR, &bufferAge);
++  else if (CEGLUtils::HasExtension(m_eglDisplay, "EGL_EXT_buffer_age"))
++    eglQuerySurface(m_eglDisplay, m_eglSurface, EGL_BUFFER_AGE_EXT, &bufferAge);
++
++  return bufferAge;
++}
++
++bool CEGLContextUtils::HasDamagedRegionSupport()
++{
++  return CEGLUtils::HasExtension(m_eglDisplay, "EGL_KHR_partial_update");
++}
++
++void CEGLContextUtils::SetDamagedRegions(const CDirtyRegionList& dirtyRegions)
++{
++  if (!CEGLUtils::HasExtension(m_eglDisplay, "EGL_KHR_partial_update"))
++    return;
++
++  std::vector<EGLint> rects;
++  if (dirtyRegions.empty())
++  {
++    rects.push_back((EGLint)0);
++    rects.push_back((EGLint)0);
++    rects.push_back((EGLint)0);
++    rects.push_back((EGLint)0);
++  }
++  else
++  {
++    EGLint height = CServiceBroker().GetWinSystem()->GetHeight();
++    for (const auto& i : dirtyRegions)
++    {
++      if (i.IsEmpty())
++        continue;
++      rects.push_back((EGLint)i.x1);
++      rects.push_back(height - (EGLint)i.y2);
++      rects.push_back((EGLint)i.Width());
++      rects.push_back((EGLint)i.Height());
++    }
++  }
++  m_eglSetDamageRegionKHR(m_eglDisplay, m_eglSurface, rects.data(), rects.size() / 4);
++}
+diff --git a/xbmc/utils/EGLUtils.h b/xbmc/utils/EGLUtils.h
+index 2db1628293129..91dbf7250df70 100644
+--- a/xbmc/utils/EGLUtils.h
++++ b/xbmc/utils/EGLUtils.h
+@@ -8,6 +8,8 @@
+ 
+ #pragma once
+ 
++#include "guilib/DirtyRegion.h"
++
+ #include <array>
+ #include <set>
+ #include <stdexcept>
+@@ -16,6 +18,8 @@
+ 
+ #include "system_egl.h"
+ 
++#include <EGL/eglext.h>
++
+ class CEGLUtils
+ {
+ public:
+@@ -199,6 +203,9 @@ class CEGLContextUtils final
+   void DestroyContext();
+   bool SetVSync(bool enable);
+   bool TrySwapBuffers();
++  int32_t GetBufferAge();
++  bool HasDamagedRegionSupport();
++  void SetDamagedRegions(const CDirtyRegionList& dirtyRegions);
+   bool IsPlatformSupported() const;
+   EGLint GetConfigAttrib(EGLint attribute) const;
+ 
+@@ -229,4 +236,5 @@ class CEGLContextUtils final
+   EGLSurface m_eglSurface{EGL_NO_SURFACE};
+   EGLContext m_eglContext{EGL_NO_CONTEXT};
+   EGLConfig m_eglConfig{}, m_eglHDRConfig{};
++  PFNEGLSETDAMAGEREGIONKHRPROC m_eglSetDamageRegionKHR = nullptr;
+ };
+diff --git a/xbmc/windowing/WinSystem.h b/xbmc/windowing/WinSystem.h
+index f3d0fb90fe7f6..610393e6e07b4 100644
+--- a/xbmc/windowing/WinSystem.h
++++ b/xbmc/windowing/WinSystem.h
+@@ -14,6 +14,7 @@
+ #include "VideoSync.h"
+ #include "WinEvents.h"
+ #include "cores/VideoPlayer/VideoRenderers/DebugInfo.h"
++#include "guilib/DirtyRegion.h"
+ #include "guilib/DispResource.h"
+ #include "utils/HDRCapabilities.h"
+ 
+@@ -181,6 +182,32 @@ class CWinSystemBase
+ 
+   virtual std::vector<std::string> GetConnectedOutputs() { return {}; }
+ 
++  /*!
++   * @brief Queries the age of the current backbuffer.
++   *
++   * @return Returns the buffer age. Usual values are: 1 for double buffering,
++   * 2 for triple buffering.
++   *
++   * @note Should be called once before any draw call, as it triggers damaged
++   * regions rendering.
++   */
++  virtual int32_t GetBufferAge() { return 2; }
++  /*!
++   * @brief Queries the GPU driver if it supports damaged regions.
++   *
++   * @return Returns true if the driver supports damaged regions.
++   *
++   * @note Especially tilers should support it. See EGL_KHR_partial_update for
++   * more info.
++   */
++  virtual bool HasDamagedRegionSupport() { return false; }
++  /*!
++   * @brief Sets the damaged regions.
++   *
++   * @param damagedRegions The list which regions need to be redrawn.
++   */
++  virtual void SetDamagedRegions(const CDirtyRegionList& damagedRegions){};
++
+ protected:
+   void UpdateDesktopResolution(RESOLUTION_INFO& newRes, const std::string &output, int width, int height, float refreshRate, uint32_t dwFlags);
+   virtual std::unique_ptr<KODI::WINDOWING::IOSScreenSaver> GetOSScreenSaverImpl() { return nullptr; }
+diff --git a/xbmc/windowing/X11/GLContext.h b/xbmc/windowing/X11/GLContext.h
+index 95e22ecebeba9..115cb22b8e277 100644
+--- a/xbmc/windowing/X11/GLContext.h
++++ b/xbmc/windowing/X11/GLContext.h
+@@ -29,6 +29,7 @@ class CGLContext
+   virtual void SwapBuffers() = 0;
+   virtual void QueryExtensions() = 0;
+   virtual uint64_t GetVblankTiming(uint64_t& msc, uint64_t& interval) { return 0; }
++  virtual int32_t GetBufferAge() { return 2; }
+   bool IsExtSupported(const char* extension) const;
+ 
+   std::string ExtPrefix() { return m_extPrefix; }
+diff --git a/xbmc/windowing/X11/GLContextEGL.cpp b/xbmc/windowing/X11/GLContextEGL.cpp
+index 7999e76b982cb..bae5b867b7149 100644
+--- a/xbmc/windowing/X11/GLContextEGL.cpp
++++ b/xbmc/windowing/X11/GLContextEGL.cpp
+@@ -541,3 +541,11 @@ void CGLContextEGL::QueryExtensions()
+ 
+   CLog::Log(LOGDEBUG, "EGL_EXTENSIONS:{}", m_extensions);
+ }
++
++int32_t CGLContextEGL::GetBufferAge()
++{
++  EGLint bufferAge = 2;
++  if (IsExtSupported("EGL_EXT_buffer_age"))
++    eglQuerySurface(m_eglDisplay, m_eglSurface, EGL_BUFFER_AGE_KHR, &bufferAge);
++  return bufferAge;
++}
+diff --git a/xbmc/windowing/X11/GLContextEGL.h b/xbmc/windowing/X11/GLContextEGL.h
+index 441787b67197b..341d52a991a6c 100644
+--- a/xbmc/windowing/X11/GLContextEGL.h
++++ b/xbmc/windowing/X11/GLContextEGL.h
+@@ -36,6 +36,8 @@ class CGLContextEGL : public CGLContext
+   void QueryExtensions() override;
+   uint64_t GetVblankTiming(uint64_t &msc, uint64_t &interval) override;
+ 
++  int32_t GetBufferAge() override;
++
+   EGLint m_renderingApi;
+   EGLDisplay m_eglDisplay = EGL_NO_DISPLAY;
+   EGLSurface m_eglSurface = EGL_NO_SURFACE;
+diff --git a/xbmc/windowing/X11/WinSystemX11GLContext.h b/xbmc/windowing/X11/WinSystemX11GLContext.h
+index 7d227b2cf3d08..9649962c9a9a2 100644
+--- a/xbmc/windowing/X11/WinSystemX11GLContext.h
++++ b/xbmc/windowing/X11/WinSystemX11GLContext.h
+@@ -10,10 +10,12 @@
+ 
+ #include "WinSystemX11.h"
+ #include "rendering/gl/RenderSystemGL.h"
+-#include "system_egl.h"
++#include "windowing/X11/GLContext.h"
+ 
+ #include <memory>
+ 
++#include "system_egl.h"
++
+ class CGLContext;
+ 
+ namespace KODI
+@@ -45,6 +47,8 @@ class CWinSystemX11GLContext : public CWinSystemX11, public CRenderSystemGL
+ 
+   bool IsExtSupported(const char* extension) const override;
+ 
++  int32_t GetBufferAge() override { return m_pGLContext->GetBufferAge(); }
++
+   // videosync
+   std::unique_ptr<CVideoSync> GetVideoSync(void *clock) override;
+   float GetFrameLatencyAdjustment() override;
+diff --git a/xbmc/windowing/X11/WinSystemX11GLESContext.h b/xbmc/windowing/X11/WinSystemX11GLESContext.h
+index cdb1cc4f8e6b8..3d14fd43c54d7 100644
+--- a/xbmc/windowing/X11/WinSystemX11GLESContext.h
++++ b/xbmc/windowing/X11/WinSystemX11GLESContext.h
+@@ -11,6 +11,7 @@
+ #include "EGL/egl.h"
+ #include "WinSystemX11.h"
+ #include "rendering/gles/RenderSystemGLES.h"
++#include "windowing/X11/GLContextEGL.h"
+ 
+ class CGLContextEGL;
+ 
+@@ -46,6 +47,8 @@ class CWinSystemX11GLESContext : public CWinSystemX11, public CRenderSystemGLES
+   EGLContext GetEGLContext() const;
+   EGLConfig GetEGLConfig() const;
+ 
++  int32_t GetBufferAge() override { return m_pGLContext->GetBufferAge(); }
++
+ protected:
+   bool SetWindow(int width, int height, bool fullscreen, const std::string& output, int* winstate = nullptr) override;
+   void PresentRenderImpl(bool rendered) override;
+diff --git a/xbmc/windowing/gbm/WinSystemGbmEGLContext.h b/xbmc/windowing/gbm/WinSystemGbmEGLContext.h
+index 84f863d6d3210..5729fd91d3d31 100644
+--- a/xbmc/windowing/gbm/WinSystemGbmEGLContext.h
++++ b/xbmc/windowing/gbm/WinSystemGbmEGLContext.h
+@@ -34,6 +34,13 @@ class CWinSystemGbmEGLContext : public KODI::WINDOWING::LINUX::CWinSystemEGL, pu
+                        RESOLUTION_INFO& res) override;
+   bool DestroyWindow() override;
+ 
++  int32_t GetBufferAge() override { return m_eglContext.GetBufferAge(); };
++  bool HasDamagedRegionSupport() override { return m_eglContext.HasDamagedRegionSupport(); };
++  void SetDamagedRegions(const CDirtyRegionList& damagedRegions) override
++  {
++    m_eglContext.SetDamagedRegions(damagedRegions);
++  };
++
+ protected:
+   CWinSystemGbmEGLContext(EGLenum platform, std::string const& platformExtension)
+     : CWinSystemEGL{platform, platformExtension}
+diff --git a/xbmc/windowing/ios/WinSystemIOS.h b/xbmc/windowing/ios/WinSystemIOS.h
+index 8320b602427b6..11d7f0eba903f 100644
+--- a/xbmc/windowing/ios/WinSystemIOS.h
++++ b/xbmc/windowing/ios/WinSystemIOS.h
+@@ -64,6 +64,8 @@ class CWinSystemIOS : public CWinSystemBase, public CRenderSystemGLES
+ 
+   std::vector<std::string> GetConnectedOutputs() override;
+ 
++  int32_t GetBufferAge() override { return 3; }
++
+   bool InitDisplayLink(CVideoSyncIos *syncImpl);
+   void DeinitDisplayLink(void);
+   void OnAppFocusChange(bool focus);
+diff --git a/xbmc/windowing/wayland/WinSystemWaylandEGLContext.h b/xbmc/windowing/wayland/WinSystemWaylandEGLContext.h
+index 097b3e79e6892..d1a867c9d73f2 100644
+--- a/xbmc/windowing/wayland/WinSystemWaylandEGLContext.h
++++ b/xbmc/windowing/wayland/WinSystemWaylandEGLContext.h
+@@ -34,6 +34,13 @@ class CWinSystemWaylandEGLContext : public KODI::WINDOWING::LINUX::CWinSystemEGL
+   bool DestroyWindow() override;
+   bool DestroyWindowSystem() override;
+ 
++  int32_t GetBufferAge() override { return m_eglContext.GetBufferAge(); };
++  bool HasDamagedRegionSupport() override { return m_eglContext.HasDamagedRegionSupport(); };
++  void SetDamagedRegions(const CDirtyRegionList& damagedRegions) override
++  {
++    m_eglContext.SetDamagedRegions(damagedRegions);
++  };
++
+ protected:
+   /**
+    * Inheriting classes should override InitWindowSystem() without parameters
+
+From 33ca718d731b94d56daccb46e8ccf32ff8fe5dab Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Sat, 18 Mar 2023 13:38:01 +0100
+Subject: [PATCH 2/2] Fix screen clear for Lima
+
+---
+ xbmc/guilib/GUIWindowManager.cpp | 11 ++++-------
+ 1 file changed, 4 insertions(+), 7 deletions(-)
+
+diff --git a/xbmc/guilib/GUIWindowManager.cpp b/xbmc/guilib/GUIWindowManager.cpp
+index f9b60279e23d4..75019eac58e3b 100644
+--- a/xbmc/guilib/GUIWindowManager.cpp
++++ b/xbmc/guilib/GUIWindowManager.cpp
+@@ -1297,15 +1297,12 @@ bool CGUIWindowManager::Render()
+       hasRendered = true;
+     }
+   }
+-  else if (CServiceBroker::GetWinSystem()->HasDamagedRegionSupport() &&
+-           CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiHardwareDirtyRegions)
+-  {
+-    CServiceBroker::GetWinSystem()->SetDamagedRegions(dirtyRegions);
+-    RenderPass();
+-    hasRendered = true;
+-  }
+   else
+   {
++    if (CServiceBroker::GetWinSystem()->HasDamagedRegionSupport() &&
++        CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiHardwareDirtyRegions)
++      CServiceBroker::GetWinSystem()->SetDamagedRegions(dirtyRegions);
++
+     for (const auto& i : dirtyRegions)
+     {
+       if (i.IsEmpty())

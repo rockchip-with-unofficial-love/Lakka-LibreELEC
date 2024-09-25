@@ -1,0 +1,81 @@
+From ae1835eec3fb793e198fce2e77bd843be5fc9436 Mon Sep 17 00:00:00 2001
+From: sarbes <sarbes@kodi.tv>
+Date: Mon, 20 Mar 2023 01:16:29 +0100
+Subject: [PATCH] Cull GUI elements not in scissor bounds
+
+---
+ xbmc/guilib/GUIControl.cpp | 23 +++++++++++++++++++++++
+ xbmc/guilib/GUIControl.h   |  2 ++
+ xbmc/utils/Geometry.h      |  5 +++++
+ 3 files changed, 30 insertions(+)
+
+diff --git a/xbmc/guilib/GUIControl.cpp b/xbmc/guilib/GUIControl.cpp
+index bd404757a79fd..9dbb78678c609 100644
+--- a/xbmc/guilib/GUIControl.cpp
++++ b/xbmc/guilib/GUIControl.cpp
+@@ -177,6 +177,10 @@ void CGUIControl::Process(unsigned int currentTime, CDirtyRegionList &dirtyregio
+ // 3. reset the animation transform
+ void CGUIControl::DoRender()
+ {
++  if (IsControlRenderable() &&
++      !m_renderRegion.Intersects(CServiceBroker::GetWinSystem()->GetGfxContext().GetScissors()))
++    return;
++
+   if (IsVisible() && !m_isCulled)
+   {
+     bool hasStereo =
+@@ -951,6 +955,25 @@ void CGUIControl::UpdateControlStats()
+   }
+ }
+ 
++bool CGUIControl::IsControlRenderable()
++{
++  switch (ControlType)
++  {
++    case GUICONTAINER_EPGGRID:
++    case GUICONTAINER_FIXEDLIST:
++    case GUICONTAINER_LIST:
++    case GUICONTAINER_PANEL:
++    case GUICONTAINER_WRAPLIST:
++    case GUICONTROL_GROUP:
++    case GUICONTROL_GROUPLIST:
++    case GUICONTROL_LISTGROUP:
++    case GUICONTROL_LISTLABEL:
++      return false;
++    default:
++      return true;
++  }
++}
++
+ void CGUIControl::SetHitRect(const CRect& rect, const UTILS::COLOR::Color& color)
+ {
+   m_hitRect = rect;
+diff --git a/xbmc/guilib/GUIControl.h b/xbmc/guilib/GUIControl.h
+index 49fadaa9eb5fd..625e2af54122e 100644
+--- a/xbmc/guilib/GUIControl.h
++++ b/xbmc/guilib/GUIControl.h
+@@ -297,6 +297,8 @@ class CGUIControl
+   };
+   GUICONTROLTYPES GetControlType() const { return ControlType; }
+ 
++  bool IsControlRenderable();
++
+   enum GUIVISIBLE { HIDDEN = 0, DELAYED, VISIBLE };
+ 
+   enum GUISCROLLVALUE { FOCUS = 0, NEVER, ALWAYS };
+diff --git a/xbmc/utils/Geometry.h b/xbmc/utils/Geometry.h
+index 878905babff5f..fb6fca46fabdc 100644
+--- a/xbmc/utils/Geometry.h
++++ b/xbmc/utils/Geometry.h
+@@ -281,6 +281,11 @@ template <typename T> class CRectGen
+     return (x1 <= point.x && point.x <= x2 && y1 <= point.y && point.y <= y2);
+   };
+ 
++  constexpr bool Intersects(const this_type& rect) const
++  {
++    return (x1 < rect.x2 && x2 > rect.x1 && y1 < rect.y2 && y2 > rect.y1);
++  };
++
+   this_type& operator-=(const point_type &point) XBMC_FORCE_INLINE
+   {
+     x1 -= point.x;

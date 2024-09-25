@@ -1,0 +1,87 @@
+diff -ruPN linux/drivers/crypto/rockchip/rk3288_crypto_ahash.c linux-new/drivers/crypto/rockchip/rk3288_crypto_ahash.c
+--- linux/drivers/crypto/rockchip/rk3288_crypto_ahash.c	2023-11-20 11:52:19.000000000 +0100
++++ linux-new/drivers/crypto/rockchip/rk3288_crypto_ahash.c	2023-12-02 10:28:36.353761424 +0100
+@@ -367,7 +367,7 @@
+ 			 .base = {
+ 				  .cra_name = "sha1",
+ 				  .cra_driver_name = "rk-sha1",
+-				  .cra_priority = 300,
++				  .cra_priority = 400,
+ 				  .cra_flags = CRYPTO_ALG_ASYNC |
+ 					       CRYPTO_ALG_NEED_FALLBACK,
+ 				  .cra_blocksize = SHA1_BLOCK_SIZE,
+@@ -397,7 +397,7 @@
+ 			 .base = {
+ 				  .cra_name = "sha256",
+ 				  .cra_driver_name = "rk-sha256",
+-				  .cra_priority = 300,
++				  .cra_priority = 400,
+ 				  .cra_flags = CRYPTO_ALG_ASYNC |
+ 					       CRYPTO_ALG_NEED_FALLBACK,
+ 				  .cra_blocksize = SHA256_BLOCK_SIZE,
+@@ -427,7 +427,7 @@
+ 			 .base = {
+ 				  .cra_name = "md5",
+ 				  .cra_driver_name = "rk-md5",
+-				  .cra_priority = 300,
++				  .cra_priority = 400,
+ 				  .cra_flags = CRYPTO_ALG_ASYNC |
+ 					       CRYPTO_ALG_NEED_FALLBACK,
+ 				  .cra_blocksize = SHA1_BLOCK_SIZE,
+diff -ruPN linux/drivers/crypto/rockchip/rk3288_crypto_skcipher.c linux-new/drivers/crypto/rockchip/rk3288_crypto_skcipher.c
+--- linux/drivers/crypto/rockchip/rk3288_crypto_skcipher.c	2023-11-20 11:52:19.000000000 +0100
++++ linux-new/drivers/crypto/rockchip/rk3288_crypto_skcipher.c	2023-12-02 10:29:03.432762558 +0100
+@@ -472,7 +472,7 @@
+ 	.alg.skcipher = {
+ 		.base.cra_name		= "ecb(aes)",
+ 		.base.cra_driver_name	= "ecb-aes-rk",
+-		.base.cra_priority	= 300,
++		.base.cra_priority	= 400,
+ 		.base.cra_flags		= CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK,
+ 		.base.cra_blocksize	= AES_BLOCK_SIZE,
+ 		.base.cra_ctxsize	= sizeof(struct rk_cipher_ctx),
+@@ -494,7 +494,7 @@
+ 	.alg.skcipher = {
+ 		.base.cra_name		= "cbc(aes)",
+ 		.base.cra_driver_name	= "cbc-aes-rk",
+-		.base.cra_priority	= 300,
++		.base.cra_priority	= 400,
+ 		.base.cra_flags		= CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK,
+ 		.base.cra_blocksize	= AES_BLOCK_SIZE,
+ 		.base.cra_ctxsize	= sizeof(struct rk_cipher_ctx),
+@@ -517,7 +517,7 @@
+ 	.alg.skcipher = {
+ 		.base.cra_name		= "ecb(des)",
+ 		.base.cra_driver_name	= "ecb-des-rk",
+-		.base.cra_priority	= 300,
++		.base.cra_priority	= 400,
+ 		.base.cra_flags		= CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK,
+ 		.base.cra_blocksize	= DES_BLOCK_SIZE,
+ 		.base.cra_ctxsize	= sizeof(struct rk_cipher_ctx),
+@@ -539,7 +539,7 @@
+ 	.alg.skcipher = {
+ 		.base.cra_name		= "cbc(des)",
+ 		.base.cra_driver_name	= "cbc-des-rk",
+-		.base.cra_priority	= 300,
++		.base.cra_priority	= 400,
+ 		.base.cra_flags		= CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK,
+ 		.base.cra_blocksize	= DES_BLOCK_SIZE,
+ 		.base.cra_ctxsize	= sizeof(struct rk_cipher_ctx),
+@@ -562,7 +562,7 @@
+ 	.alg.skcipher = {
+ 		.base.cra_name		= "ecb(des3_ede)",
+ 		.base.cra_driver_name	= "ecb-des3-ede-rk",
+-		.base.cra_priority	= 300,
++		.base.cra_priority	= 400,
+ 		.base.cra_flags		= CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK,
+ 		.base.cra_blocksize	= DES_BLOCK_SIZE,
+ 		.base.cra_ctxsize	= sizeof(struct rk_cipher_ctx),
+@@ -584,7 +584,7 @@
+ 	.alg.skcipher = {
+ 		.base.cra_name		= "cbc(des3_ede)",
+ 		.base.cra_driver_name	= "cbc-des3-ede-rk",
+-		.base.cra_priority	= 300,
++		.base.cra_priority	= 400,
+ 		.base.cra_flags		= CRYPTO_ALG_ASYNC | CRYPTO_ALG_NEED_FALLBACK,
+ 		.base.cra_blocksize	= DES_BLOCK_SIZE,
+ 		.base.cra_ctxsize	= sizeof(struct rk_cipher_ctx),

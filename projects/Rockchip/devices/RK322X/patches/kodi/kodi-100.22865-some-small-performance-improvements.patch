@@ -1,0 +1,414 @@
+From 9754ecdc6b980522277bd1fb7906769ca57c6050 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Markus=20H=C3=A4rer?= <markus.haerer@gmx.net>
+Date: Sun, 19 Feb 2023 17:26:28 +0100
+Subject: [PATCH 1/6] CURL: Make ::Decode() faster by obmitting a temporary and
+ using std::from_chars
+
+The method was coming up in Valgrind with the DHAT tool in "copy mode". The
+optimized version is ~20% faster.
+---
+ xbmc/URL.cpp | 32 +++++++++++++++++---------------
+ xbmc/URL.h   |  3 ++-
+ 2 files changed, 19 insertions(+), 16 deletions(-)
+
+diff --git a/xbmc/URL.cpp b/xbmc/URL.cpp
+index f4a66d0e802ed..c25d00967f77d 100644
+--- a/xbmc/URL.cpp
++++ b/xbmc/URL.cpp
+@@ -20,7 +20,9 @@
+ #include <sys\stat.h>
+ #endif
+ 
++#include <charconv>
+ #include <string>
++#include <system_error>
+ #include <vector>
+ 
+ using namespace ADDON;
+@@ -644,7 +646,7 @@ bool CURL::IsFullPath(const std::string &url)
+   return false;
+ }
+ 
+-std::string CURL::Decode(const std::string& strURLData)
++std::string CURL::Decode(std::string_view strURLData)
+ //modified to be more accommodating - if a non hex value follows a % take the characters directly and don't raise an error.
+ // However % characters should really be escaped like any other non safe character (www.rfc-editor.org/rfc/rfc1738.txt)
+ {
+@@ -653,30 +655,30 @@ std::string CURL::Decode(const std::string& strURLData)
+   /* result will always be less than source */
+   strResult.reserve( strURLData.length() );
+ 
+-  for (unsigned int i = 0; i < strURLData.size(); ++i)
++  const char* const iterEnd = strURLData.data() + strURLData.size();
++  for (const char* iter = strURLData.data(); iter < iterEnd; ++iter)
+   {
+-    int kar = (unsigned char)strURLData[i];
+-    if (kar == '+') strResult += ' ';
+-    else if (kar == '%')
++    if (*iter == '+')
++      strResult += ' ';
++    else if (*iter == '%')
+     {
+-      if (i < strURLData.size() - 2)
++      if (std::distance(iter, iterEnd) >= 3)
+       {
+-        std::string strTmp;
+-        strTmp.assign(strURLData.substr(i + 1, 2));
+-        int dec_num=-1;
+-        sscanf(strTmp.c_str(), "%x", (unsigned int *)&dec_num);
+-        if (dec_num<0 || dec_num>255)
+-          strResult += kar;
++        uint8_t dec_num{};
++        const std::from_chars_result res = std::from_chars(iter + 1, iter + 3, dec_num, 16);
++        if (res.ec != std::errc() || res.ptr != iter + 3)
++          strResult += *iter;
+         else
+         {
+           strResult += (char)dec_num;
+-          i += 2;
++          iter += 2;
+         }
+       }
+       else
+-        strResult += kar;
++        strResult += *iter;
+     }
+-    else strResult += kar;
++    else
++      strResult += *iter;
+   }
+ 
+   return strResult;
+diff --git a/xbmc/URL.h b/xbmc/URL.h
+index 77c12cc38f240..4707c1ae4d79e 100644
+--- a/xbmc/URL.h
++++ b/xbmc/URL.h
+@@ -12,6 +12,7 @@
+ 
+ #include <stdlib.h>
+ #include <string>
++#include <string_view>
+ 
+ #ifdef TARGET_WINDOWS
+ #undef SetPort // WIN32INCLUDES this is defined as SetPortA in WinSpool.h which is being included _somewhere_
+@@ -138,7 +139,7 @@ class CURL
+   bool IsLocalHost() const;
+   static bool IsFileOnly(const std::string &url); ///< return true if there are no directories in the url.
+   static bool IsFullPath(const std::string &url); ///< return true if the url includes the full path
+-  static std::string Decode(const std::string& strURLData);
++  static std::string Decode(std::string_view strURLData);
+   static std::string Encode(const std::string& strURLData);
+ 
+   /*! \brief Check whether a URL is a given URL scheme.
+
+From ef34810a72844d19a25e9c7d937ef88d8aab131d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Markus=20H=C3=A4rer?= <markus.haerer@gmx.net>
+Date: Sun, 26 Feb 2023 01:51:28 +0100
+Subject: [PATCH 2/6] CURL: Have ::Encode() accept a std::string_view to match
+ ::Decode()
+
+Also get rid of the temporary std::string creation while on it.
+---
+ xbmc/URL.cpp | 12 +++++++-----
+ xbmc/URL.h   |  2 +-
+ 2 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/xbmc/URL.cpp b/xbmc/URL.cpp
+index c25d00967f77d..40793ce89279d 100644
+--- a/xbmc/URL.cpp
++++ b/xbmc/URL.cpp
+@@ -21,10 +21,13 @@
+ #endif
+ 
+ #include <charconv>
++#include <iterator>
+ #include <string>
+ #include <system_error>
+ #include <vector>
+ 
++#include <fmt/xchar.h>
++
+ using namespace ADDON;
+ 
+ CURL::~CURL() = default;
+@@ -684,23 +687,22 @@ std::string CURL::Decode(std::string_view strURLData)
+   return strResult;
+ }
+ 
+-std::string CURL::Encode(const std::string& strURLData)
++std::string CURL::Encode(std::string_view strURLData)
+ {
+   std::string strResult;
+ 
+   /* wonder what a good value is here is, depends on how often it occurs */
+   strResult.reserve( strURLData.length() * 2 );
+ 
+-  for (size_t i = 0; i < strURLData.size(); ++i)
++  for (auto kar : strURLData)
+   {
+-    const char kar = strURLData[i];
+-
+     // Don't URL encode "-_.!()" according to RFC1738
+     //! @todo Update it to "-_.~" after Gotham according to RFC3986
+     if (StringUtils::isasciialphanum(kar) || kar == '-' || kar == '.' || kar == '_' || kar == '!' || kar == '(' || kar == ')')
+       strResult.push_back(kar);
+     else
+-      strResult += StringUtils::Format("%{:02x}", (unsigned int)((unsigned char)kar));
++      fmt::format_to(std::back_insert_iterator(strResult), "%{:02x}",
++                     (unsigned int)((unsigned char)kar));
+   }
+ 
+   return strResult;
+diff --git a/xbmc/URL.h b/xbmc/URL.h
+index 4707c1ae4d79e..af0be6fb12918 100644
+--- a/xbmc/URL.h
++++ b/xbmc/URL.h
+@@ -140,7 +140,7 @@ class CURL
+   static bool IsFileOnly(const std::string &url); ///< return true if there are no directories in the url.
+   static bool IsFullPath(const std::string &url); ///< return true if the url includes the full path
+   static std::string Decode(std::string_view strURLData);
+-  static std::string Encode(const std::string& strURLData);
++  static std::string Encode(std::string_view strURLData);
+ 
+   /*! \brief Check whether a URL is a given URL scheme.
+    Comparison is case-insensitive as per RFC1738
+
+From eaa0c8a81f38f638cbccbed507a209d9487caa4f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Markus=20H=C3=A4rer?= <markus.haerer@gmx.net>
+Date: Fri, 3 Feb 2023 02:12:46 +0100
+Subject: [PATCH 3/6] CDirtyRegionTracker: Make the CleanMarkedRegions() method
+ more efficient
+
+Without that change >100MB of data are copied around inside the vector every
+second according to Valgrinds DHAT tool in "copy mode".
+---
+ xbmc/guilib/DirtyRegionTracker.cpp | 14 ++++++--------
+ 1 file changed, 6 insertions(+), 8 deletions(-)
+
+diff --git a/xbmc/guilib/DirtyRegionTracker.cpp b/xbmc/guilib/DirtyRegionTracker.cpp
+index 398d455031989..a016601ad9e6e 100644
+--- a/xbmc/guilib/DirtyRegionTracker.cpp
++++ b/xbmc/guilib/DirtyRegionTracker.cpp
+@@ -10,10 +10,12 @@
+ 
+ #include "DirtyRegionSolvers.h"
+ #include "ServiceBroker.h"
++#include "guilib/DirtyRegion.h"
+ #include "settings/AdvancedSettings.h"
+ #include "settings/SettingsComponent.h"
+ #include "utils/log.h"
+ 
++#include <algorithm>
+ #include <stdio.h>
+ 
+ CDirtyRegionTracker::CDirtyRegionTracker(int buffering)
+@@ -77,12 +79,8 @@ CDirtyRegionList CDirtyRegionTracker::GetDirtyRegions()
+ void CDirtyRegionTracker::CleanMarkedRegions()
+ {
+   int buffering = CServiceBroker::GetSettingsComponent()->GetAdvancedSettings()->m_guiVisualizeDirtyRegions ? 20 : m_buffering;
+-  int i = m_markedRegions.size() - 1;
+-  while (i >= 0)
+-	{
+-    if (m_markedRegions[i].UpdateAge() >= buffering)
+-      m_markedRegions.erase(m_markedRegions.begin() + i);
+-
+-    i--;
+-  }
++  m_markedRegions.erase(
++      std::remove_if(m_markedRegions.begin(), m_markedRegions.end(),
++                     [buffering](CDirtyRegion& r) { return r.UpdateAge() >= buffering; }),
++      m_markedRegions.end());
+ }
+
+From 476c2485e0fd99799f1a0c46752283a7331ef1b6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Markus=20H=C3=A4rer?= <markus.haerer@gmx.net>
+Date: Sun, 5 Feb 2023 15:38:01 +0100
+Subject: [PATCH 4/6] CGUIFontTTF: Reserve scripts vector size
+
+---
+ xbmc/guilib/GUIFontTTF.cpp | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/xbmc/guilib/GUIFontTTF.cpp b/xbmc/guilib/GUIFontTTF.cpp
+index 6b38fb0cbbc0c..36d1b633ac0f5 100644
+--- a/xbmc/guilib/GUIFontTTF.cpp
++++ b/xbmc/guilib/GUIFontTTF.cpp
+@@ -657,6 +657,7 @@ std::vector<CGUIFontTTF::Glyph> CGUIFontTTF::GetHarfBuzzShapedGlyphs(const vecTe
+   int lastScriptIndex = -1;
+   int lastSetIndex = -1;
+ 
++  scripts.reserve(text.size());
+   for (const auto& character : text)
+   {
+     scripts.emplace_back(hb_unicode_script(ufuncs, static_cast<wchar_t>(0xffff & character)));
+
+From 0c0b81790d923bd4c31ffbe213ee308372717973 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Markus=20H=C3=A4rer?= <markus.haerer@gmx.net>
+Date: Sun, 5 Feb 2023 23:04:29 +0100
+Subject: [PATCH 5/6] CVariant: Add ref qualified versions of asString and
+ asWideString
+
+This allows to reuse the std::(w)string when calling as(Wide)String on a
+rvalue.
+---
+ xbmc/utils/Variant.cpp | 20 ++++++++++++++++++--
+ xbmc/utils/Variant.h   |  6 ++++--
+ 2 files changed, 22 insertions(+), 4 deletions(-)
+
+diff --git a/xbmc/utils/Variant.cpp b/xbmc/utils/Variant.cpp
+index a9327c91c8baf..82400b6ce2d9b 100644
+--- a/xbmc/utils/Variant.cpp
++++ b/xbmc/utils/Variant.cpp
+@@ -501,7 +501,7 @@ bool CVariant::asBoolean(bool fallback) const
+   return fallback;
+ }
+ 
+-std::string CVariant::asString(const std::string &fallback /* = "" */) const
++std::string CVariant::asString(const std::string& fallback /* = "" */) const&
+ {
+   switch (m_type)
+   {
+@@ -522,7 +522,15 @@ std::string CVariant::asString(const std::string &fallback /* = "" */) const
+   return fallback;
+ }
+ 
+-std::wstring CVariant::asWideString(const std::wstring &fallback /* = L"" */) const
++std::string CVariant::asString(const std::string& fallback /*= ""*/) &&
++{
++  if (m_type == VariantTypeString)
++    return std::move(*m_data.string);
++  else
++    return asString(fallback);
++}
++
++std::wstring CVariant::asWideString(const std::wstring& fallback /* = L"" */) const&
+ {
+   switch (m_type)
+   {
+@@ -543,6 +551,14 @@ std::wstring CVariant::asWideString(const std::wstring &fallback /* = L"" */) co
+   return fallback;
+ }
+ 
++std::wstring CVariant::asWideString(const std::wstring& fallback /*= L""*/) &&
++{
++  if (m_type == VariantTypeWideString)
++    return std::move(*m_data.wstring);
++  else
++    return asWideString(fallback);
++}
++
+ CVariant &CVariant::operator[](const std::string &key)
+ {
+   if (m_type == VariantTypeNull)
+diff --git a/xbmc/utils/Variant.h b/xbmc/utils/Variant.h
+index 9d48a3df23bfa..981193427b2b8 100644
+--- a/xbmc/utils/Variant.h
++++ b/xbmc/utils/Variant.h
+@@ -87,8 +87,10 @@ class CVariant
+   uint64_t asUnsignedInteger(uint64_t fallback = 0u) const;
+   uint32_t asUnsignedInteger32(uint32_t fallback = 0u) const;
+   bool asBoolean(bool fallback = false) const;
+-  std::string asString(const std::string &fallback = "") const;
+-  std::wstring asWideString(const std::wstring &fallback = L"") const;
++  std::string asString(const std::string& fallback = "") const&;
++  std::string asString(const std::string& fallback = "") &&;
++  std::wstring asWideString(const std::wstring& fallback = L"") const&;
++  std::wstring asWideString(const std::wstring& fallback = L"") &&;
+   double asDouble(double fallback = 0.0) const;
+   float asFloat(float fallback = 0.0f) const;
+ 
+
+From 3c07d6cd1e230f1e6553d64c1c69613e81be0cf7 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Markus=20H=C3=A4rer?= <markus.haerer@gmx.net>
+Date: Sat, 11 Mar 2023 20:17:13 +0100
+Subject: [PATCH 6/6] CVariant: Add ref qualified versions of operator[]
+
+---
+ xbmc/utils/Variant.cpp | 24 ++++++++++++++++++++----
+ xbmc/utils/Variant.h   | 10 ++++++----
+ 2 files changed, 26 insertions(+), 8 deletions(-)
+
+diff --git a/xbmc/utils/Variant.cpp b/xbmc/utils/Variant.cpp
+index 82400b6ce2d9b..8eb7e34f7ad01 100644
+--- a/xbmc/utils/Variant.cpp
++++ b/xbmc/utils/Variant.cpp
+@@ -559,7 +559,7 @@ std::wstring CVariant::asWideString(const std::wstring& fallback /*= L""*/) &&
+     return asWideString(fallback);
+ }
+ 
+-CVariant &CVariant::operator[](const std::string &key)
++CVariant& CVariant::operator[](const std::string& key) &
+ {
+   if (m_type == VariantTypeNull)
+   {
+@@ -573,7 +573,7 @@ CVariant &CVariant::operator[](const std::string &key)
+     return ConstNullVariant;
+ }
+ 
+-const CVariant &CVariant::operator[](const std::string &key) const
++const CVariant& CVariant::operator[](const std::string& key) const&
+ {
+   VariantMap::const_iterator it;
+   if (m_type == VariantTypeObject && (it = m_data.map->find(key)) != m_data.map->end())
+@@ -582,7 +582,15 @@ const CVariant &CVariant::operator[](const std::string &key) const
+     return ConstNullVariant;
+ }
+ 
+-CVariant &CVariant::operator[](unsigned int position)
++CVariant CVariant::operator[](const std::string& key) &&
++{
++  if (m_type == VariantTypeObject)
++    return std::move((*m_data.map)[key]);
++  else
++    return ConstNullVariant;
++}
++
++CVariant& CVariant::operator[](unsigned int position) &
+ {
+   if (m_type == VariantTypeArray && size() > position)
+     return m_data.array->at(position);
+@@ -590,7 +598,7 @@ CVariant &CVariant::operator[](unsigned int position)
+     return ConstNullVariant;
+ }
+ 
+-const CVariant &CVariant::operator[](unsigned int position) const
++const CVariant& CVariant::operator[](unsigned int position) const&
+ {
+   if (m_type == VariantTypeArray && size() > position)
+     return m_data.array->at(position);
+@@ -598,6 +606,14 @@ const CVariant &CVariant::operator[](unsigned int position) const
+     return ConstNullVariant;
+ }
+ 
++CVariant CVariant::operator[](unsigned int position) &&
++{
++  if (m_type == VariantTypeArray && size() > position)
++    return std::move(m_data.array->at(position));
++  else
++    return ConstNullVariant;
++}
++
+ CVariant &CVariant::operator=(const CVariant &rhs)
+ {
+   if (m_type == VariantTypeConstNull || this == &rhs)
+diff --git a/xbmc/utils/Variant.h b/xbmc/utils/Variant.h
+index 981193427b2b8..1b9ee7a85e143 100644
+--- a/xbmc/utils/Variant.h
++++ b/xbmc/utils/Variant.h
+@@ -94,10 +94,12 @@ class CVariant
+   double asDouble(double fallback = 0.0) const;
+   float asFloat(float fallback = 0.0f) const;
+ 
+-  CVariant &operator[](const std::string &key);
+-  const CVariant &operator[](const std::string &key) const;
+-  CVariant &operator[](unsigned int position);
+-  const CVariant &operator[](unsigned int position) const;
++  CVariant& operator[](const std::string& key) &;
++  const CVariant& operator[](const std::string& key) const&;
++  CVariant operator[](const std::string& key) &&;
++  CVariant& operator[](unsigned int position) &;
++  const CVariant& operator[](unsigned int position) const&;
++  CVariant operator[](unsigned int position) &&;
+ 
+   CVariant &operator=(const CVariant &rhs);
+   CVariant& operator=(CVariant&& rhs) noexcept;
